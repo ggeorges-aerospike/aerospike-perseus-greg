@@ -3,11 +3,12 @@ aerospikeConfiguration:
     -
       ip: "localhost"
       port: 3000
-  username: ""
+  username: "s"
   password: ""
   namespace: "test"
   set: "test"
   truncateSet: True
+  tlsPath: ""
 outputWindowConfiguration:
   printIntervalSec: 1
   numberOfLinesBeforeReprintingTheHeader: 25

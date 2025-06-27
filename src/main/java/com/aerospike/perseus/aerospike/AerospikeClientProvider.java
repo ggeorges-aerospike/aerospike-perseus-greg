@@ -2,6 +2,7 @@ package com.aerospike.perseus.aerospike;
 
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.policy.ClientPolicy;
+import com.aerospike.client.policy.TlsPolicy;
 import com.aerospike.perseus.configurations.pojos.AerospikeConfiguration;
 
 public class AerospikeClientProvider {
@@ -14,6 +15,11 @@ public class AerospikeClientProvider {
         policy.maxConnsPerNode = 3000;
         policy.user = conf.username;
         policy.password = conf.password;
+        if(conf.tlsPath != null && !conf.tlsPath.isEmpty()) {
+            policy.tlsPolicy = new TlsPolicy();
+            System.setProperty("javax.net.ssl.trustStore",conf.tlsPath);
+            System.setProperty("javax.net.ssl.trustStorePassword","123456");
+        }
         client = new AerospikeClient(policy, conf.getHosts());
         if(conf.truncateSet) {
             System.out.printf("Truncating the set: %s in namespace: %s!\n", conf.set, conf.namespace);

@@ -10,6 +10,7 @@ public class AerospikeConfiguration {
     public String namespace;
     public String set;
     public Boolean truncateSet;
+    public String tlsPath;
 
     public com.aerospike.client.Host[] getHosts() {
         return hosts.stream().map(
