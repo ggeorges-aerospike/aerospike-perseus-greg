@@ -26,7 +26,8 @@ import java.util.stream.Collectors;
 public class TestSetup {
     private final ThreadsProvider threadsProvider = new ThreadsProvider();
     private final ArrayList<Test> testList = new ArrayList<>();
-    private final WriteTest writeTest;
+    //private final WriteTest writeTest;
+    private final BlueCatWriteTest blueCatWriteTest;
     private final TotalTpsCounter totalTpsCounter;
 
     public TestSetup(AerospikeConfiguration aerospikeConfig, TestConfiguration testConfig) throws InterruptedException {
@@ -50,8 +51,10 @@ public class TestSetup {
 
         var arguments = new TestCaseConstructorArguments(client, aerospikeConfig.namespace, aerospikeConfig.set, totalTpsCounter);
 
-        writeTest = new WriteTest(arguments, recordGenerator);
+        //writeTest = new WriteTest(arguments, recordGenerator);
         //testList.add(writeTest);
+
+        blueCatWriteTest = new BlueCatWriteTest(arguments, blueCatRecordGenerator);
 
         //BlueCat write tests
         testList.add(new BlueCatWriteTest(arguments, blueCatRecordGenerator));
@@ -103,13 +106,13 @@ public class TestSetup {
     }
 
     private void warmUp() {
-        writeTest.setThreads(5);
+        blueCatWriteTest.setThreads(5);
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        writeTest.getTPS();
+        blueCatWriteTest.getTPS();
         totalTpsCounter.getTPS();
     }
 

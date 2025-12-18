@@ -117,13 +117,18 @@ public class BlueCatRecordGenerator extends BaseGenerator<BlueCatRecord> {
     // -------------------------
 
     private void startScenario() {
-        scenario = new Scenario();
-        scenario.cid = UUID.randomUUID();
-        scenario.sid = uuid();
-        scenario.spid = uuid();
-        scenario.sa = pick(SOURCE_ADDRESSES);
-        scenario.nextTs = Instant.now().toEpochMilli() + rnd.nextInt(1000);
-        scenario.remaining = rand(3, 10);
+        Scenario s = new Scenario();
+
+        // ALWAYS initialize every field
+        s.cid = UUID.randomUUID();
+        s.sid = uuid();
+        s.spid = uuid();
+        s.sa = pick(SOURCE_ADDRESSES);
+        s.nextTs = Instant.now().toEpochMilli() + rnd.nextInt(1000);
+        s.remaining = rand(3, 10);
+
+        // Publish only after fully initialized
+        this.scenario = s;
     }
 
     // -------------------------
