@@ -244,8 +244,11 @@ public class BlueCatRecordGenerator extends BaseGenerator<BlueCatRecord> {
     // -------------------------
 
     private List<Map<String, Object>> pickPolicies() {
-        Collections.shuffle(POLICY_POOL, rnd);
-        return POLICY_POOL.subList(0, 1 + rnd.nextInt(2));
+        List<Map<String, Object>> copy = new ArrayList<>(POLICY_POOL);
+        Collections.shuffle(copy, rnd);
+
+        int count = 1 + rnd.nextInt(2);
+        return new ArrayList<>(copy.subList(0, count));
     }
 
     private static Map<String, Object> policy(String id, String name, String domain) {

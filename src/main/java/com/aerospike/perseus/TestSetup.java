@@ -51,7 +51,7 @@ public class TestSetup {
         var arguments = new TestCaseConstructorArguments(client, aerospikeConfig.namespace, aerospikeConfig.set, totalTpsCounter);
 
         writeTest = new WriteTest(arguments, recordGenerator);
-        testList.add(writeTest);
+        //testList.add(writeTest);
 
         //BlueCat write tests
         testList.add(new BlueCatWriteTest(arguments, blueCatRecordGenerator));
