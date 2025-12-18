@@ -1,7 +1,6 @@
 package com.aerospike.perseus.testCases;
 
 import com.aerospike.perseus.data.BlueCatRecord;
-import com.aerospike.perseus.data.generators.BaseGenerator;
 import com.aerospike.perseus.data.generators.BlueCatRecordGenerator;
 
 public class BlueCatWriteTest extends Test<BlueCatRecord> {
