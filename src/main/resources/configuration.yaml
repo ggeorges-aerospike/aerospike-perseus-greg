@@ -6,7 +6,7 @@ aerospikeConfiguration:
   username: "s"
   password: ""
   namespace: "test"
-  set: "test"
+  set: "bluesky_events"
   truncateSet: True
   tlsPath: ""
 outputWindowConfiguration:
