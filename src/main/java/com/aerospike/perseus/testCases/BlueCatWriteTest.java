@@ -1,0 +1,25 @@
+package com.aerospike.perseus.testCases;
+
+import com.aerospike.perseus.data.BlueCatRecord;
+import com.aerospike.perseus.data.generators.BaseGenerator;
+
+public class BlueCatWriteTest extends Test<BlueCatRecord> {
+
+    public BlueCatWriteTest(TestCaseConstructorArguments arguments, BaseGenerator<BlueCatRecord> generator) {
+        super(arguments, generator);
+    }
+
+    @Override
+    protected void execute(BlueCatRecord record) {
+        client.put(
+                null,                       // use client.writePolicyDefault
+                getKey(record.getKey()),    // inherited helper
+                record.getBins()
+        );
+    }
+
+    @Override
+   public String[] getHeader() {
+        return "Write\n ".split("\n");
+    }
+}

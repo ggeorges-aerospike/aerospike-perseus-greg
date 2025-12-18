@@ -6,6 +6,7 @@ public class TestConfiguration {
     public Integer recordSize;
     public Integer readBatchSize;
     public Integer writeBatchSize;
+    public Integer blueCatWriteBatchSize;
     public Double readHitRatio;
     public Boolean stringIndex;
     public Boolean numericIndex;

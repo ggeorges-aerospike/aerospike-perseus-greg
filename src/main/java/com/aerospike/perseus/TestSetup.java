@@ -40,6 +40,10 @@ public class TestSetup {
         var geoPointGenerator = new GeoPointGenerator();
         var geoJsonGenerator = new GeoJsonGenerator(geoPointGenerator);
         var recordGenerator = new RecordGenerator(dummyStringGenerator, geoJsonGenerator, keyProvider);
+
+        var blueCatRecordGenerator = new BlueCatRecordGenerator(keyProvider);
+        var batchBlueCatRecordsGenerator = new BatchBlueCatRecordsGenerator(blueCatRecordGenerator, testConfig.blueCatWriteBatchSize);
+
         var batchSimpleRecordsGenerator = new BatchRecordsGenerator(recordGenerator, testConfig.writeBatchSize);
         var batchCachedKeyGenerator = new BatchedFromKeyCacheGenerator(keyProvider.getCache(), testConfig.readBatchSize);
         totalTpsCounter = new TotalTpsCounter();
@@ -48,7 +52,12 @@ public class TestSetup {
 
         writeTest = new WriteTest(arguments, recordGenerator);
         testList.add(writeTest);
-        testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
+
+        //BlueCat write tests
+        testList.add(new BlueCatWriteTest(arguments, blueCatRecordGenerator));
+        testList.add(new BlueCatBatchWriteTest(arguments, batchBlueCatRecordsGenerator, testConfig.blueCatWriteBatchSize));
+
+        /*testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
         testList.add(new UpdateTest(arguments, cachedKeyProvider));
         testList.add(new DeleteTest(arguments, cachedKeyProvider));
         testList.add(new ExpressionReadTest(arguments, cachedKeyProvider));
@@ -82,7 +91,7 @@ public class TestSetup {
             } catch (IOException e) {
                 System.out.println("UDF Aggregation function couldn't be loaded. The UDF Aggregation test is therefore disabled.");
             }
-        }
+        }*/
     }
 
     public void startTest() {

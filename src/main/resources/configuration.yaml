@@ -18,6 +18,7 @@ testConfiguration:
   recordSize: 1220
   readBatchSize: 50
   writeBatchSize: 50
+  blueCatWriteBatchSize: 50
   readHitRatio: 0.8
   stringIndex: False
   numericIndex: False
