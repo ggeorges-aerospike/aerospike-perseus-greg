@@ -60,8 +60,8 @@ public class TestSetup {
         testList.add(new BlueCatWriteTest(arguments, blueCatRecordGenerator));
         testList.add(new BlueCatBatchWriteTest(arguments, batchBlueCatRecordsGenerator, testConfig.blueCatWriteBatchSize));
 
-        /*testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
-        testList.add(new UpdateTest(arguments, cachedKeyProvider));
+        testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
+        /*testList.add(new UpdateTest(arguments, cachedKeyProvider));
         testList.add(new DeleteTest(arguments, cachedKeyProvider));
         testList.add(new ExpressionReadTest(arguments, cachedKeyProvider));
         testList.add(new ExpressionWriteTest(arguments, cachedKeyProvider));

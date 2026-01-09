@@ -19,7 +19,7 @@ testConfiguration:
   readBatchSize: 50
   writeBatchSize: 50
   blueCatWriteBatchSize: 50
-  readHitRatio: 0.8
+  readHitRatio: 0.9
   stringIndex: False
   numericIndex: False
   geoSpatialIndex: False
