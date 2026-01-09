@@ -5,8 +5,8 @@ delete: 0
 expressionRead: 0
 expressionWrite: 0
 batchWrite: 0
-blueCatWrite: 0
-blueCatBatchWrite: 0
+blueCatWrite: 30
+blueCatBatchWrite: 10
 batchRead: 0
 numericSearch: 0
 stringSearch: 0
