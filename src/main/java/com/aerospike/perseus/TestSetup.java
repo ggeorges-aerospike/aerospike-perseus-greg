@@ -61,7 +61,7 @@ public class TestSetup {
         testList.add(new BlueCatBatchWriteTest(arguments, batchBlueCatRecordsGenerator, testConfig.blueCatWriteBatchSize));
 
         testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
-        testList.add(new UpdateTest(arguments, cachedKeyProvider));
+        /*testList.add(new UpdateTest(arguments, cachedKeyProvider));
         testList.add(new DeleteTest(arguments, cachedKeyProvider));
         testList.add(new ExpressionReadTest(arguments, cachedKeyProvider));
         testList.add(new ExpressionWriteTest(arguments, cachedKeyProvider));
@@ -94,7 +94,7 @@ public class TestSetup {
             } catch (IOException e) {
                 System.out.println("UDF Aggregation function couldn't be loaded. The UDF Aggregation test is therefore disabled.");
             }
-        }
+        }*/
     }
 
     public void startTest() {
