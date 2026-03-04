@@ -3,82 +3,120 @@ package com.aerospike.perseus.data.generators;
 import com.aerospike.client.Value;
 import com.aerospike.perseus.data.PmuDeviceData;
 import com.aerospike.perseus.data.PmuFrame;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.*;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Generates PMU frames matching the Hitachi RTDB data model exactly.
+ * Generates PMU frames by replaying real Hitachi 27-bus CSV data in a loop.
  *
- * Data model per device record:
+ * Loads at startup:
+ *   - PMU_27bus_SingleSnapshot.json → device mapping (AssignDevice)
+ *   - Flat_Complex_RealValue.csv, Flat_Complex_ImagValue.csv, Flat_Complex_Quality.csv
+ *   - Flat_Real_Value.csv, Flat_Real_Quality.csv
+ *
+ * Data model per device record (matches Hitachi app exactly):
  *   Key:  "{streamId}:{deviceId}:{timestampMicros}"
  *   Bin "cx": KEY_ORDERED map { Long globalIndex → List[real, imag, quality] }
  *   Bin "rl": KEY_ORDERED map { Long globalIndex → List[value, quality] }
  *
- * 27-bus system: 6 devices, 137 complex phasors, 144 real analogs.
- * Timestamps advance at 200 FPS (5000 µs intervals).
- * Streams are round-robined across configured stream count.
+ * 27-bus: 6 devices, 137 complex, 144 real, 36001 columns (180s at 200 FPS).
+ * Columns cycle on repeat when the 180s recording is exhausted.
  */
 public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
 
     private final int streamCount;
     private final String streamPrefix;
-    private final int deviceCount;
-    private final int complexCount;
-    private final int realCount;
+    private final int streamStartIndex;
     private final long intervalMicros;
 
-    // Per-stream timestamp tracking
+    // Per-stream timestamp and column tracking
     private final AtomicLong[] nextTimestamps;
+    private final AtomicLong[] columnCounters;
     private final AtomicLong streamCounter = new AtomicLong(0);
 
-    // Device mapping: which global indices belong to which device
+    // Device mapping from JSON (matches Hitachi DeviceMapping.fromMetadata)
     private final List<String> deviceIds;
     private final Map<String, List<Integer>> complexByDevice;
     private final Map<String, List<Integer>> realByDevice;
 
-    private final int streamStartIndex;
+    // CSV data matrices (row=measurement, col=timestamp)
+    private final double[][] cxReal;
+    private final double[][] cxImag;
+    private final int[][] cxQuality;
+    private final double[][] rlValue;
+    private final int[][] rlQuality;
+    private final int numColumns;
 
     public PmuFrameGenerator(int streamCount, String streamPrefix, int streamStartIndex,
-                             int deviceCount, int complexCount, int realCount, int fps) {
+                             int complexCount, int realCount, int fps) {
         this.streamCount = streamCount;
         this.streamPrefix = streamPrefix;
         this.streamStartIndex = streamStartIndex;
-        this.deviceCount = deviceCount;
-        this.complexCount = complexCount;
-        this.realCount = realCount;
         this.intervalMicros = 1_000_000L / fps;
+
+        System.out.println("Loading PMU data from classpath resources...");
+        long loadStart = System.currentTimeMillis();
+
+        // Load device mapping from JSON
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream jsonStream = getClass().getClassLoader().getResourceAsStream("pmudata/PMU_27bus_SingleSnapshot.json");
+            if (jsonStream == null) throw new RuntimeException("PMU_27bus_SingleSnapshot.json not found on classpath");
+            JsonNode root = mapper.readTree(jsonStream);
+
+            List<Integer> cxAssignDevice = jsonArrayToIntList(root.get("Complex").get("AssignDevice"));
+            List<Integer> rlAssignDevice = jsonArrayToIntList(root.get("Real").get("AssignDevice"));
+
+            // Build device mapping (same logic as Hitachi DeviceMapping.fromMetadata)
+            complexByDevice = new LinkedHashMap<>();
+            for (int i = 0; i < cxAssignDevice.size(); i++) {
+                String devId = "dev" + cxAssignDevice.get(i);
+                complexByDevice.computeIfAbsent(devId, k -> new ArrayList<>()).add(i);
+            }
+
+            realByDevice = new LinkedHashMap<>();
+            for (int i = 0; i < rlAssignDevice.size(); i++) {
+                String devId = "dev" + rlAssignDevice.get(i);
+                realByDevice.computeIfAbsent(devId, k -> new ArrayList<>()).add(i);
+            }
+
+            Set<String> allDevs = new LinkedHashSet<>();
+            allDevs.addAll(complexByDevice.keySet());
+            allDevs.addAll(realByDevice.keySet());
+            deviceIds = new ArrayList<>(allDevs);
+
+            System.out.println("Device mapping: " + deviceIds.size() + " devices, " +
+                    complexCount + " complex, " + realCount + " real measurements");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load PMU JSON metadata", e);
+        }
+
+        // Load CSV data matrices
+        try {
+            cxReal = readCsvMatrix("pmudata/Flat_Complex_RealValue.csv", complexCount);
+            cxImag = readCsvMatrix("pmudata/Flat_Complex_ImagValue.csv", complexCount);
+            cxQuality = readCsvIntMatrix("pmudata/Flat_Complex_Quality.csv", complexCount);
+            rlValue = readCsvMatrix("pmudata/Flat_Real_Value.csv", realCount);
+            rlQuality = readCsvIntMatrix("pmudata/Flat_Real_Quality.csv", realCount);
+            numColumns = cxReal[0].length;
+
+            System.out.println("CSV data loaded: " + numColumns + " columns (timestamps) in " +
+                    (System.currentTimeMillis() - loadStart) + "ms");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load PMU CSV data", e);
+        }
 
         // Initialize per-stream timestamps from now
         long baseMicros = System.currentTimeMillis() * 1000;
         this.nextTimestamps = new AtomicLong[streamCount];
+        this.columnCounters = new AtomicLong[streamCount];
         for (int i = 0; i < streamCount; i++) {
             this.nextTimestamps[i] = new AtomicLong(baseMicros);
-        }
-
-        // Build device mapping: distribute measurements evenly across devices
-        this.deviceIds = new ArrayList<>(deviceCount);
-        this.complexByDevice = new LinkedHashMap<>();
-        this.realByDevice = new LinkedHashMap<>();
-
-        for (int d = 0; d < deviceCount; d++) {
-            String devId = "PMU_" + (d + 1);
-            deviceIds.add(devId);
-            complexByDevice.put(devId, new ArrayList<>());
-            realByDevice.put(devId, new ArrayList<>());
-        }
-
-        // Distribute complex measurements round-robin across devices
-        for (int i = 0; i < complexCount; i++) {
-            String devId = deviceIds.get(i % deviceCount);
-            complexByDevice.get(devId).add(i);
-        }
-
-        // Distribute real measurements round-robin across devices
-        for (int i = 0; i < realCount; i++) {
-            String devId = deviceIds.get(i % deviceCount);
-            realByDevice.get(devId).add(i);
+            this.columnCounters[i] = new AtomicLong(0);
         }
     }
 
@@ -100,54 +138,89 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
         // Advance timestamp for this stream
         long tsMicros = nextTimestamps[streamIdx].getAndAdd(intervalMicros);
 
-        // Generate device data
-        ThreadLocalRandom rnd = ThreadLocalRandom.current();
-        double t = tsMicros / 1_000_000.0;  // seconds for sinusoidal generation
-        List<PmuDeviceData> devices = new ArrayList<>(deviceCount);
+        // Get column index (wraps around the 36001-column recording)
+        int col = (int) (columnCounters[streamIdx].getAndIncrement() % numColumns);
+
+        // Build device data from real CSV values
+        List<PmuDeviceData> devices = new ArrayList<>(deviceIds.size());
 
         for (String devId : deviceIds) {
-            // Build cx map: globalIdx → [real, imag, quality]
+            // Build cx map from real CSV data
             Map<Value, Value> cxMap = new TreeMap<>();
             List<Integer> cxIndices = complexByDevice.get(devId);
-            for (int idx : cxIndices) {
-                double phase = 2 * Math.PI * 50 * t + idx * 0.1;
-                double magnitude = 100.0 + idx * 2.0 + rnd.nextDouble() * 0.5;
-                double real = magnitude * Math.cos(phase);
-                double imag = magnitude * Math.sin(phase);
-                int quality = 0;
-
-                List<Value> vals = List.of(
-                        Value.get(real),
-                        Value.get(imag),
-                        Value.get(quality)
-                );
-                cxMap.put(Value.get((long) idx), Value.get(vals));
+            if (cxIndices != null) {
+                for (int globalIdx : cxIndices) {
+                    double rv = cxReal[globalIdx][col];
+                    double iv = cxImag[globalIdx][col];
+                    int q = cxQuality[globalIdx][col];
+                    cxMap.put(Value.get((long) globalIdx), Value.get(List.of(rv, iv, q)));
+                }
             }
 
-            // Build rl map: globalIdx → [value, quality]
+            // Build rl map from real CSV data
             Map<Value, Value> rlMap = new TreeMap<>();
             List<Integer> rlIndices = realByDevice.get(devId);
-            for (int idx : rlIndices) {
-                double value;
-                if (idx < 90) {
-                    value = 1.0;  // status flags
-                } else if (idx < 117) {
-                    value = 49.5 + rnd.nextDouble() * 1.0;  // frequency ~50Hz
-                } else {
-                    value = -0.01 + rnd.nextDouble() * 0.02;  // ROCOF
+            if (rlIndices != null) {
+                for (int globalIdx : rlIndices) {
+                    double v = rlValue[globalIdx][col];
+                    int qr = rlQuality[globalIdx][col];
+                    rlMap.put(Value.get((long) globalIdx), Value.get(List.of(v, qr)));
                 }
-                int quality = 1;
-
-                List<Value> vals = List.of(
-                        Value.get(value),
-                        Value.get(quality)
-                );
-                rlMap.put(Value.get((long) idx), Value.get(vals));
             }
 
             devices.add(new PmuDeviceData(devId, cxMap, rlMap));
         }
 
         return new PmuFrame(streamId, tsMicros, devices);
+    }
+
+    // --- CSV/JSON parsing (same logic as Hitachi DataLoaderService) ---
+
+    private double[][] readCsvMatrix(String resource, int expectedRows) throws IOException {
+        double[][] matrix = new double[expectedRows][];
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(resource),
+                        resource + " not found on classpath")))) {
+            String line;
+            int row = 0;
+            while ((line = reader.readLine()) != null && row < expectedRows) {
+                String[] parts = line.split(",");
+                matrix[row] = new double[parts.length];
+                for (int i = 0; i < parts.length; i++) {
+                    matrix[row][i] = Double.parseDouble(parts[i].trim());
+                }
+                row++;
+            }
+        }
+        return matrix;
+    }
+
+    private int[][] readCsvIntMatrix(String resource, int expectedRows) throws IOException {
+        int[][] matrix = new int[expectedRows][];
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(resource),
+                        resource + " not found on classpath")))) {
+            String line;
+            int row = 0;
+            while ((line = reader.readLine()) != null && row < expectedRows) {
+                String[] parts = line.split(",");
+                matrix[row] = new int[parts.length];
+                for (int i = 0; i < parts.length; i++) {
+                    matrix[row][i] = (int) Double.parseDouble(parts[i].trim());
+                }
+                row++;
+            }
+        }
+        return matrix;
+    }
+
+    private List<Integer> jsonArrayToIntList(JsonNode node) {
+        List<Integer> list = new ArrayList<>();
+        if (node != null && node.isArray()) {
+            for (JsonNode elem : node) {
+                list.add(elem.asInt());
+            }
+        }
+        return list;
     }
 }

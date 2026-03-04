@@ -67,8 +67,7 @@ public class TestSetup {
         var pmuFrameGenerator = new PmuFrameGenerator(
                 testConfig.pmuStreamCount, testConfig.pmuStreamPrefix,
                 testConfig.pmuStreamStartIndex,
-                testConfig.pmuDeviceCount, testConfig.pmuComplexCount,
-                testConfig.pmuRealCount, testConfig.pmuFps);
+                testConfig.pmuComplexCount, testConfig.pmuRealCount, testConfig.pmuFps);
         var pmuTracker = new PmuTimestampTracker(pmuFrameGenerator.getDeviceIds());
         var pmuSliceGenerator = new PmuSliceRequestGenerator(pmuTracker);
 
