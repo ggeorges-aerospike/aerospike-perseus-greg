@@ -3,11 +3,11 @@ aerospikeConfiguration:
     -
       ip: "localhost"
       port: 3000
-  username: "s"
+  username: ""
   password: ""
   namespace: "test"
-  set: "bluesky_events"
-  truncateSet: True
+  set: "pmu_frames_rt"
+  truncateSet: False
   tlsPath: ""
 outputWindowConfiguration:
   printIntervalSec: 1
@@ -15,24 +15,9 @@ outputWindowConfiguration:
   columnWidth: 11
 testConfiguration:
   perseusId: 0
-  recordSize: 1220
-  readBatchSize: 50
-  writeBatchSize: 50
-  blueCatWriteBatchSize: 50
-  readHitRatio: 0.9
-  stringIndex: False
-  numericIndex: False
-  geoSpatialIndex: False
-  udfAggregation: False
-  rangeQuery: False
-  rangeQueryConfiguration:
-    maxTimeRangeChance: 0.00001
-    maxTimeRange: 1000
-    normalTimeRange: 5
   pmuStreamCount: 10
   pmuStreamStartIndex: 1
   pmuStreamPrefix: "stream"
-  pmuDeviceCount: 6
   pmuComplexCount: 137
   pmuRealCount: 144
   pmuFps: 200

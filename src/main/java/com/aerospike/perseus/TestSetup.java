@@ -5,19 +5,12 @@ import com.aerospike.perseus.configurations.TestConfiguration;
 import com.aerospike.perseus.configurations.ThreadsProvider;
 import com.aerospike.perseus.configurations.pojos.AerospikeConfiguration;
 import com.aerospike.perseus.data.PmuTimestampTracker;
-import com.aerospike.perseus.data.generators.*;
-import com.aerospike.perseus.data.generators.key.BatchedFromKeyCacheGenerator;
-import com.aerospike.perseus.data.generators.key.ProbabilisticKeyCache;
-import com.aerospike.perseus.data.generators.key.KeyGenerator;
+import com.aerospike.perseus.data.generators.PmuFrameGenerator;
+import com.aerospike.perseus.data.generators.PmuSliceRequestGenerator;
 import com.aerospike.perseus.presentation.TotalTpsCounter;
 import com.aerospike.perseus.testCases.*;
-import com.aerospike.perseus.testCases.search.GeospatialSearchTest;
-import com.aerospike.perseus.testCases.search.NumericSearchTest;
-import com.aerospike.perseus.testCases.search.RangeQueryTest;
-import com.aerospike.perseus.testCases.search.StringSearchTest;
 import com.aerospike.perseus.presentation.TPSLogger;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -27,41 +20,14 @@ import java.util.stream.Collectors;
 public class TestSetup {
     private final ThreadsProvider threadsProvider = new ThreadsProvider();
     private final ArrayList<Test> testList = new ArrayList<>();
-    //private final WriteTest writeTest;
-    private final BlueCatWriteTest blueCatWriteTest;
     private final TotalTpsCounter totalTpsCounter;
 
     public TestSetup(AerospikeConfiguration aerospikeConfig, TestConfiguration testConfig) throws InterruptedException {
 
         var client = AerospikeClientProvider.getClient(aerospikeConfig);
-        var keyProvider = new KeyGenerator(client, testConfig.perseusId, aerospikeConfig.namespace);
-        var cachedKeyProvider = keyProvider.getCache();
-        var probabilisticKeyCache = new ProbabilisticKeyCache(cachedKeyProvider, testConfig.readHitRatio);
-        var timePeriodGenerator = new TimePeriodGenerator(testConfig.rangeQueryConfiguration, cachedKeyProvider);
-        var dummyStringGenerator = new DummyBlobGenerator(testConfig.recordSize);
-        var geoPointGenerator = new GeoPointGenerator();
-        var geoJsonGenerator = new GeoJsonGenerator(geoPointGenerator);
-        var recordGenerator = new RecordGenerator(dummyStringGenerator, geoJsonGenerator, keyProvider);
-
-        var blueCatRecordGenerator = new BlueCatRecordGenerator(keyProvider);
-        var batchBlueCatRecordsGenerator = new BatchBlueCatRecordsGenerator(blueCatRecordGenerator, testConfig.blueCatWriteBatchSize);
-
-        var batchSimpleRecordsGenerator = new BatchRecordsGenerator(recordGenerator, testConfig.writeBatchSize);
-        var batchCachedKeyGenerator = new BatchedFromKeyCacheGenerator(keyProvider.getCache(), testConfig.readBatchSize);
         totalTpsCounter = new TotalTpsCounter();
 
         var arguments = new TestCaseConstructorArguments(client, aerospikeConfig.namespace, aerospikeConfig.set, totalTpsCounter);
-
-        //writeTest = new WriteTest(arguments, recordGenerator);
-        //testList.add(writeTest);
-
-        blueCatWriteTest = new BlueCatWriteTest(arguments, blueCatRecordGenerator);
-
-        //BlueCat write tests
-        testList.add(new BlueCatWriteTest(arguments, blueCatRecordGenerator));
-        testList.add(new BlueCatBatchWriteTest(arguments, batchBlueCatRecordsGenerator, testConfig.blueCatWriteBatchSize));
-
-        testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
 
         // PMU workload tests
         var pmuFrameGenerator = new PmuFrameGenerator(
@@ -73,75 +39,30 @@ public class TestSetup {
 
         testList.add(new PmuWriteTest(arguments, pmuFrameGenerator, pmuTracker, testConfig.pmuTtlSeconds));
         testList.add(new PmuSliceReadTest(arguments, pmuSliceGenerator));
-
-        /*testList.add(new UpdateTest(arguments, cachedKeyProvider));
-        testList.add(new DeleteTest(arguments, cachedKeyProvider));
-        testList.add(new ExpressionReadTest(arguments, cachedKeyProvider));
-        testList.add(new ExpressionWriteTest(arguments, cachedKeyProvider));
-        testList.add(new BatchWriteTest(arguments, batchSimpleRecordsGenerator, testConfig.writeBatchSize));
-        testList.add(new BatchReadTest(arguments, batchCachedKeyGenerator, testConfig.readBatchSize));
-        if(testConfig.numericIndex) {
-            testList.add(new NumericSearchTest(arguments, cachedKeyProvider));
-        }
-        if(testConfig.stringIndex) {
-            testList.add(new StringSearchTest(arguments, cachedKeyProvider));
-        }
-        if(testConfig.geoSpatialIndex) {
-            testList.add(new GeospatialSearchTest(arguments, geoPointGenerator));
-        }
-        try {
-            testList.add(new UDFTest(arguments, cachedKeyProvider));
-        } catch (IOException e) {
-            System.out.println("UDF function couldn't be loaded. The UDF test is therefore disabled.");
-        }
-        if(testConfig.udfAggregation) {
-            try {
-                testList.add(new UDFAggregationTest(arguments, timePeriodGenerator));
-            } catch (IOException e) {
-                System.out.println("UDF Aggregation function couldn't be loaded. The UDF Aggregation test is therefore disabled.");
-            }
-        }
-        if(testConfig.rangeQuery) {
-            try {
-                testList.add(new RangeQueryTest(arguments, timePeriodGenerator));
-            } catch (IOException e) {
-                System.out.println("UDF Aggregation function couldn't be loaded. The UDF Aggregation test is therefore disabled.");
-            }
-        }*/
     }
 
     public void startTest() {
-        warmUp();
+        // Reset TPS counters before starting
+        totalTpsCounter.getTPS();
 
         var scheduledExecutorService = Executors.newScheduledThreadPool(1);
         scheduledExecutorService.scheduleAtFixedRate(
                 this::setThread, 0, 1, TimeUnit.SECONDS);
     }
 
-    private void warmUp() {
-        blueCatWriteTest.setThreads(5);
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        blueCatWriteTest.getTPS();
-        totalTpsCounter.getTPS();
-    }
-
     private void setThread() {
         var threads = threadsProvider.getThreads();
         var map = testList.stream().collect(Collectors.toMap(
                 testCase -> testCase.getClass().getSimpleName().replace("Test", "").toLowerCase(),
-                testCase-> testCase));
-        for (String thread: threads.keySet()) {
-            if(map.containsKey(thread.toLowerCase()))
+                testCase -> testCase));
+        for (String thread : threads.keySet()) {
+            if (map.containsKey(thread.toLowerCase()))
                 map.get(thread.toLowerCase()).setThreads(threads.get(thread));
         }
     }
 
     public List<TPSLogger> getLoggableTestList() {
-        return testList.stream().map(test -> (TPSLogger)test).toList();
+        return testList.stream().map(test -> (TPSLogger) test).toList();
     }
 
     public TotalTpsCounter getTotalTps() {
