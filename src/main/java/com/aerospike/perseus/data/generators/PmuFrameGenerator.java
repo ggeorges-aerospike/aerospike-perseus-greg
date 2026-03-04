@@ -124,6 +124,14 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
         return Collections.unmodifiableList(deviceIds);
     }
 
+    /**
+     * Returns the current frame index (column counter) for the given stream.
+     * Used by PmuWriteTest to determine downsample eligibility via modulo.
+     */
+    public long getFrameIndex(int streamIdx) {
+        return columnCounters[streamIdx].get();
+    }
+
     @Override
     public boolean hasNext() {
         return true;
