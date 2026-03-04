@@ -11,11 +11,17 @@ public class PmuFrame {
     private final String streamId;
     private final long tsMicros;
     private final List<PmuDeviceData> devices;
+    private final int localStreamIndex;
 
     public PmuFrame(String streamId, long tsMicros, List<PmuDeviceData> devices) {
+        this(streamId, tsMicros, devices, 0);
+    }
+
+    public PmuFrame(String streamId, long tsMicros, List<PmuDeviceData> devices, int localStreamIndex) {
         this.streamId = streamId;
         this.tsMicros = tsMicros;
         this.devices = devices;
+        this.localStreamIndex = localStreamIndex;
     }
 
     public String getStreamId() {
@@ -28,5 +34,9 @@ public class PmuFrame {
 
     public List<PmuDeviceData> getDevices() {
         return devices;
+    }
+
+    public int getLocalStreamIndex() {
+        return localStreamIndex;
     }
 }

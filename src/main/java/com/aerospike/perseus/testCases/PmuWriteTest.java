@@ -94,7 +94,7 @@ public class PmuWriteTest extends Test<PmuFrame> {
 
         // Write to downsample sets if this frame lands on the downsample interval.
         // frameIndex is the column counter *after* increment, so subtract 1 for modulo.
-        long frameIndex = pmuGenerator.getFrameIndex(getStreamIndex(frame)) - 1;
+        long frameIndex = pmuGenerator.getFrameIndex(frame.getLocalStreamIndex()) - 1;
         for (int tier = 0; tier < DOWNSAMPLE_TIERS.length; tier++) {
             int factor = DOWNSAMPLE_TIERS[tier][0];
             if (frameIndex % factor == 0) {
@@ -136,22 +136,6 @@ public class PmuWriteTest extends Test<PmuFrame> {
         batch.add(new BatchWrite(bwPolicy, sentinelKey, new Operation[]{sentinelOp}));
     }
 
-    /**
-     * Extract stream index from streamId (e.g., "stream_1" → 0, "stream_5" → 4).
-     * Falls back to 0 if pattern doesn't match.
-     */
-    private int getStreamIndex(PmuFrame frame) {
-        String sid = frame.getStreamId();
-        int lastUnderscore = sid.lastIndexOf('_');
-        if (lastUnderscore >= 0 && lastUnderscore < sid.length() - 1) {
-            try {
-                return Integer.parseInt(sid.substring(lastUnderscore + 1)) - 1;
-            } catch (NumberFormatException e) {
-                return 0;
-            }
-        }
-        return 0;
-    }
 
     @Override
     public String[] getHeader() {

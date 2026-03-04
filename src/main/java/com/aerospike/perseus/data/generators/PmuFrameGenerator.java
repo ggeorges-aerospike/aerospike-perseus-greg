@@ -179,7 +179,7 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
             devices.add(new PmuDeviceData(devId, cxMap, rlMap));
         }
 
-        return new PmuFrame(streamId, tsMicros, devices);
+        return new PmuFrame(streamId, tsMicros, devices, streamIdx);
     }
 
     // --- CSV/JSON parsing (same logic as Hitachi DataLoaderService) ---
