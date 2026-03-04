@@ -4,6 +4,7 @@ import com.aerospike.perseus.aerospike.AerospikeClientProvider;
 import com.aerospike.perseus.configurations.TestConfiguration;
 import com.aerospike.perseus.configurations.ThreadsProvider;
 import com.aerospike.perseus.configurations.pojos.AerospikeConfiguration;
+import com.aerospike.perseus.data.PmuTimestampTracker;
 import com.aerospike.perseus.data.generators.*;
 import com.aerospike.perseus.data.generators.key.BatchedFromKeyCacheGenerator;
 import com.aerospike.perseus.data.generators.key.ProbabilisticKeyCache;
@@ -61,6 +62,19 @@ public class TestSetup {
         testList.add(new BlueCatBatchWriteTest(arguments, batchBlueCatRecordsGenerator, testConfig.blueCatWriteBatchSize));
 
         testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
+
+        // PMU workload tests
+        var pmuFrameGenerator = new PmuFrameGenerator(
+                testConfig.pmuStreamCount, testConfig.pmuStreamPrefix,
+                testConfig.pmuStreamStartIndex,
+                testConfig.pmuDeviceCount, testConfig.pmuComplexCount,
+                testConfig.pmuRealCount, testConfig.pmuFps);
+        var pmuTracker = new PmuTimestampTracker(pmuFrameGenerator.getDeviceIds());
+        var pmuSliceGenerator = new PmuSliceRequestGenerator(pmuTracker);
+
+        testList.add(new PmuWriteTest(arguments, pmuFrameGenerator, pmuTracker, testConfig.pmuTtlSeconds));
+        testList.add(new PmuSliceReadTest(arguments, pmuSliceGenerator));
+
         /*testList.add(new UpdateTest(arguments, cachedKeyProvider));
         testList.add(new DeleteTest(arguments, cachedKeyProvider));
         testList.add(new ExpressionReadTest(arguments, cachedKeyProvider));

@@ -14,3 +14,5 @@ geospatialSearch: 0
 udf: 0
 udfAggregation: 0
 rangeQuery: 0
+pmuwrite: 0
+pmusliceread: 0

@@ -29,3 +29,11 @@ testConfiguration:
     maxTimeRangeChance: 0.00001
     maxTimeRange: 1000
     normalTimeRange: 5
+  pmuStreamCount: 10
+  pmuStreamStartIndex: 1
+  pmuStreamPrefix: "stream"
+  pmuDeviceCount: 6
+  pmuComplexCount: 137
+  pmuRealCount: 144
+  pmuFps: 200
+  pmuTtlSeconds: 43200

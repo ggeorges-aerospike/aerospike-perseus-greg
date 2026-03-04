@@ -15,4 +15,14 @@ public class TestConfiguration {
     public RangeQueryConfiguration rangeQueryConfiguration;
     public Boolean rangeQuery;
     public int perseusId;
+
+    // PMU workload configuration
+    public Integer pmuStreamCount = 10;
+    public Integer pmuStreamStartIndex = 1;
+    public String pmuStreamPrefix = "stream";
+    public Integer pmuDeviceCount = 6;
+    public Integer pmuComplexCount = 137;
+    public Integer pmuRealCount = 144;
+    public Integer pmuFps = 200;
+    public Integer pmuTtlSeconds = 43200;  // 12 hours
 }
