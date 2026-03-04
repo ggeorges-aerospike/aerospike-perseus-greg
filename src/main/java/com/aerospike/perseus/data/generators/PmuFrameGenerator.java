@@ -146,7 +146,7 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
 
         for (String devId : deviceIds) {
             // Build cx map from real CSV data
-            Map<Value, Value> cxMap = new TreeMap<>();
+            Map<Value, Value> cxMap = new HashMap<>();
             List<Integer> cxIndices = complexByDevice.get(devId);
             if (cxIndices != null) {
                 for (int globalIdx : cxIndices) {
@@ -158,7 +158,7 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
             }
 
             // Build rl map from real CSV data
-            Map<Value, Value> rlMap = new TreeMap<>();
+            Map<Value, Value> rlMap = new HashMap<>();
             List<Integer> rlIndices = realByDevice.get(devId);
             if (rlIndices != null) {
                 for (int globalIdx : rlIndices) {
