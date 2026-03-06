@@ -6,7 +6,7 @@ import com.aerospike.client.cdt.MapOrder;
 import com.aerospike.client.cdt.MapPolicy;
 import com.aerospike.client.cdt.MapWriteFlags;
 import com.aerospike.client.policy.BatchWritePolicy;
-import com.aerospike.perseus.data.PmuDeviceData;
+import com.aerospike.perseus.data.PmuSourceData;
 import com.aerospike.perseus.data.PmuFrame;
 import com.aerospike.perseus.data.PmuTimestampTracker;
 import com.aerospike.perseus.data.generators.PmuFrameGenerator;
@@ -14,11 +14,11 @@ import com.aerospike.perseus.data.generators.PmuFrameGenerator;
 import java.util.*;
 
 /**
- * PMU write test: writes one frame (all devices) per execute() call.
+ * PMU write test: writes one frame (all sources) per execute() call.
  * Uses batch write with MapOperation.putItems to match the Hitachi data model exactly.
  *
- * Record layout per device:
- *   Key:  "{streamId}:{deviceId}:{timestampMicros}" (string key)
+ * Record layout per source:
+ *   Key:  "{streamId}:{sourceId}:{timestampMicros}" (string key)
  *   Bin "cx":  KEY_ORDERED map { globalIndex (Long) → [real, imag, quality] }
  *   Bin "rl":  KEY_ORDERED map { globalIndex (Long) → [value, quality] }
  *   Set: "pmu_frames_rt"
@@ -70,26 +70,26 @@ public class PmuWriteTest extends Test<PmuFrame> {
             bwPolicy.expiration = ttlSeconds;
         }
 
-        // Estimate batch size: devices + sentinel + potential downsample copies
-        int estimatedSize = frame.getDevices().size() + 1 +
-                (DOWNSAMPLE_TIERS.length * (frame.getDevices().size() + 1));
+        // Estimate batch size: sources + sentinel + potential downsample copies
+        int estimatedSize = frame.getSources().size() + 1 +
+                (DOWNSAMPLE_TIERS.length * (frame.getSources().size() + 1));
         List<BatchRecord> batchRecords = new ArrayList<>(estimatedSize);
 
-        // Build device operations once — reused for RT and downsample sets
-        List<Operation[]> deviceOps = new ArrayList<>(frame.getDevices().size());
-        for (PmuDeviceData dev : frame.getDevices()) {
+        // Build source operations once — reused for RT and downsample sets
+        List<Operation[]> sourceOps = new ArrayList<>(frame.getSources().size());
+        for (PmuSourceData src : frame.getSources()) {
             List<Operation> ops = new ArrayList<>(2);
-            if (dev.getCxMap() != null && !dev.getCxMap().isEmpty()) {
-                ops.add(MapOperation.putItems(ORDERED_POLICY, CX_BIN, dev.getCxMap()));
+            if (src.getCxMap() != null && !src.getCxMap().isEmpty()) {
+                ops.add(MapOperation.putItems(ORDERED_POLICY, CX_BIN, src.getCxMap()));
             }
-            if (dev.getRlMap() != null && !dev.getRlMap().isEmpty()) {
-                ops.add(MapOperation.putItems(ORDERED_POLICY, RL_BIN, dev.getRlMap()));
+            if (src.getRlMap() != null && !src.getRlMap().isEmpty()) {
+                ops.add(MapOperation.putItems(ORDERED_POLICY, RL_BIN, src.getRlMap()));
             }
-            deviceOps.add(ops.isEmpty() ? null : ops.toArray(new Operation[0]));
+            sourceOps.add(ops.isEmpty() ? null : ops.toArray(new Operation[0]));
         }
 
         // Write to primary RT set
-        addDeviceRecords(batchRecords, bwPolicy, PMU_SET, frame, deviceOps);
+        addSourceRecords(batchRecords, bwPolicy, PMU_SET, frame, sourceOps);
         addSentinel(batchRecords, bwPolicy, META_SET, frame);
 
         // Write to downsample sets if this frame lands on the downsample interval.
@@ -103,7 +103,7 @@ public class PmuWriteTest extends Test<PmuFrame> {
                 if (dsTtl > 0) {
                     dsBwPolicy.expiration = dsTtl;
                 }
-                addDeviceRecords(batchRecords, dsBwPolicy, DOWNSAMPLE_SETS[tier], frame, deviceOps);
+                addSourceRecords(batchRecords, dsBwPolicy, DOWNSAMPLE_SETS[tier], frame, sourceOps);
                 addSentinel(batchRecords, dsBwPolicy, META_SET, frame);
             }
         }
@@ -116,13 +116,13 @@ public class PmuWriteTest extends Test<PmuFrame> {
         tracker.record(frame.getStreamId(), frame.getTsMicros());
     }
 
-    private void addDeviceRecords(List<BatchRecord> batch, BatchWritePolicy bwPolicy,
-                                   String set, PmuFrame frame, List<Operation[]> deviceOps) {
-        List<PmuDeviceData> devices = frame.getDevices();
-        for (int i = 0; i < devices.size(); i++) {
-            Operation[] ops = deviceOps.get(i);
+    private void addSourceRecords(List<BatchRecord> batch, BatchWritePolicy bwPolicy,
+                                   String set, PmuFrame frame, List<Operation[]> sourceOps) {
+        List<PmuSourceData> sources = frame.getSources();
+        for (int i = 0; i < sources.size(); i++) {
+            Operation[] ops = sourceOps.get(i);
             if (ops != null) {
-                String keyStr = frame.getStreamId() + ":" + devices.get(i).getDeviceId() + ":" + frame.getTsMicros();
+                String keyStr = frame.getStreamId() + ":" + sources.get(i).getSourceId() + ":" + frame.getTsMicros();
                 Key key = new Key(namespace, set, keyStr);
                 batch.add(new BatchWrite(bwPolicy, key, ops));
             }
@@ -139,6 +139,6 @@ public class PmuWriteTest extends Test<PmuFrame> {
 
     @Override
     public String[] getHeader() {
-        return "PMU Write\n6 dev/frame".split("\n");
+        return "PMU Write\n6 src/frame".split("\n");
     }
 }

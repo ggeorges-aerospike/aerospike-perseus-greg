@@ -1,7 +1,7 @@
 package com.aerospike.perseus.data.generators;
 
 import com.aerospike.client.Value;
-import com.aerospike.perseus.data.PmuDeviceData;
+import com.aerospike.perseus.data.PmuSourceData;
 import com.aerospike.perseus.data.PmuFrame;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,16 +14,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * Generates PMU frames by replaying real Hitachi 27-bus CSV data in a loop.
  *
  * Loads at startup:
- *   - PMU_27bus_SingleSnapshot.json → device mapping (AssignDevice)
+ *   - PMU_27bus_SingleSnapshot.json → source mapping (AssignDevice)
  *   - Flat_Complex_RealValue.csv, Flat_Complex_ImagValue.csv, Flat_Complex_Quality.csv
  *   - Flat_Real_Value.csv, Flat_Real_Quality.csv
  *
- * Data model per device record (matches Hitachi app exactly):
- *   Key:  "{streamId}:{deviceId}:{timestampMicros}"
+ * Data model per source record (matches Hitachi app exactly):
+ *   Key:  "{streamId}:{sourceId}:{timestampMicros}"
  *   Bin "cx": KEY_ORDERED map { Long globalIndex → List[real, imag, quality] }
  *   Bin "rl": KEY_ORDERED map { Long globalIndex → List[value, quality] }
  *
- * 27-bus: 6 devices, 137 complex, 144 real, 36001 columns (180s at 200 FPS).
+ * 27-bus: 6 sources, 137 complex, 144 real, 36001 columns (180s at 200 FPS).
  * Columns cycle on repeat when the 180s recording is exhausted.
  */
 public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
@@ -38,10 +38,10 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
     private final AtomicLong[] columnCounters;
     private final AtomicLong streamCounter = new AtomicLong(0);
 
-    // Device mapping from JSON (matches Hitachi DeviceMapping.fromMetadata)
-    private final List<String> deviceIds;
-    private final Map<String, List<Integer>> complexByDevice;
-    private final Map<String, List<Integer>> realByDevice;
+    // Source mapping from JSON (matches Hitachi SourceMapping.fromMetadata)
+    private final List<String> sourceIds;
+    private final Map<String, List<Integer>> complexBySource;
+    private final Map<String, List<Integer>> realBySource;
 
     // CSV data matrices (row=measurement, col=timestamp)
     private final double[][] cxReal;
@@ -61,7 +61,7 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
         System.out.println("Loading PMU data from classpath resources...");
         long loadStart = System.currentTimeMillis();
 
-        // Load device mapping from JSON
+        // Load source mapping from JSON
         try {
             ObjectMapper mapper = new ObjectMapper();
             InputStream jsonStream = getClass().getClassLoader().getResourceAsStream("pmudata/PMU_27bus_SingleSnapshot.json");
@@ -71,25 +71,25 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
             List<Integer> cxAssignDevice = jsonArrayToIntList(root.get("Complex").get("AssignDevice"));
             List<Integer> rlAssignDevice = jsonArrayToIntList(root.get("Real").get("AssignDevice"));
 
-            // Build device mapping (same logic as Hitachi DeviceMapping.fromMetadata)
-            complexByDevice = new LinkedHashMap<>();
+            // Build source mapping (same logic as Hitachi SourceMapping.fromMetadata)
+            complexBySource = new LinkedHashMap<>();
             for (int i = 0; i < cxAssignDevice.size(); i++) {
-                String devId = "dev" + cxAssignDevice.get(i);
-                complexByDevice.computeIfAbsent(devId, k -> new ArrayList<>()).add(i);
+                String srcId = "PMU_" + cxAssignDevice.get(i);
+                complexBySource.computeIfAbsent(srcId, k -> new ArrayList<>()).add(i);
             }
 
-            realByDevice = new LinkedHashMap<>();
+            realBySource = new LinkedHashMap<>();
             for (int i = 0; i < rlAssignDevice.size(); i++) {
-                String devId = "dev" + rlAssignDevice.get(i);
-                realByDevice.computeIfAbsent(devId, k -> new ArrayList<>()).add(i);
+                String srcId = "PMU_" + rlAssignDevice.get(i);
+                realBySource.computeIfAbsent(srcId, k -> new ArrayList<>()).add(i);
             }
 
-            Set<String> allDevs = new LinkedHashSet<>();
-            allDevs.addAll(complexByDevice.keySet());
-            allDevs.addAll(realByDevice.keySet());
-            deviceIds = new ArrayList<>(allDevs);
+            Set<String> allSrcs = new LinkedHashSet<>();
+            allSrcs.addAll(complexBySource.keySet());
+            allSrcs.addAll(realBySource.keySet());
+            sourceIds = new ArrayList<>(allSrcs);
 
-            System.out.println("Device mapping: " + deviceIds.size() + " devices, " +
+            System.out.println("Source mapping: " + sourceIds.size() + " sources, " +
                     complexCount + " complex, " + realCount + " real measurements");
         } catch (IOException e) {
             throw new RuntimeException("Failed to load PMU JSON metadata", e);
@@ -120,8 +120,8 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
         }
     }
 
-    public List<String> getDeviceIds() {
-        return Collections.unmodifiableList(deviceIds);
+    public List<String> getSourceIds() {
+        return Collections.unmodifiableList(sourceIds);
     }
 
     /**
@@ -149,13 +149,13 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
         // Get column index (wraps around the 36001-column recording)
         int col = (int) (columnCounters[streamIdx].getAndIncrement() % numColumns);
 
-        // Build device data from real CSV values
-        List<PmuDeviceData> devices = new ArrayList<>(deviceIds.size());
+        // Build source data from real CSV values
+        List<PmuSourceData> sources = new ArrayList<>(sourceIds.size());
 
-        for (String devId : deviceIds) {
+        for (String srcId : sourceIds) {
             // Build cx map from real CSV data
             Map<Value, Value> cxMap = new HashMap<>();
-            List<Integer> cxIndices = complexByDevice.get(devId);
+            List<Integer> cxIndices = complexBySource.get(srcId);
             if (cxIndices != null) {
                 for (int globalIdx : cxIndices) {
                     double rv = cxReal[globalIdx][col];
@@ -167,7 +167,7 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
 
             // Build rl map from real CSV data
             Map<Value, Value> rlMap = new HashMap<>();
-            List<Integer> rlIndices = realByDevice.get(devId);
+            List<Integer> rlIndices = realBySource.get(srcId);
             if (rlIndices != null) {
                 for (int globalIdx : rlIndices) {
                     double v = rlValue[globalIdx][col];
@@ -176,10 +176,10 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
                 }
             }
 
-            devices.add(new PmuDeviceData(devId, cxMap, rlMap));
+            sources.add(new PmuSourceData(srcId, cxMap, rlMap));
         }
 
-        return new PmuFrame(streamId, tsMicros, devices, streamIdx);
+        return new PmuFrame(streamId, tsMicros, sources, streamIdx);
     }
 
     // --- CSV/JSON parsing (same logic as Hitachi DataLoaderService) ---

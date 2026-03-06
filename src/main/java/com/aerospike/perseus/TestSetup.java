@@ -34,7 +34,7 @@ public class TestSetup {
                 testConfig.pmuStreamCount, testConfig.pmuStreamPrefix,
                 testConfig.pmuStreamStartIndex,
                 testConfig.pmuComplexCount, testConfig.pmuRealCount, testConfig.pmuFps);
-        var pmuTracker = new PmuTimestampTracker(pmuFrameGenerator.getDeviceIds());
+        var pmuTracker = new PmuTimestampTracker(pmuFrameGenerator.getSourceIds());
         var pmuSliceGenerator = new PmuSliceRequestGenerator(pmuTracker);
 
         testList.add(new PmuWriteTest(arguments, pmuFrameGenerator, pmuTracker, testConfig.pmuTtlSeconds));

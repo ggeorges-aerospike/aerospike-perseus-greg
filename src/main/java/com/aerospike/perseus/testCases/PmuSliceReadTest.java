@@ -7,11 +7,11 @@ import com.aerospike.perseus.data.generators.PmuSliceRequestGenerator;
 import java.util.List;
 
 /**
- * PMU slice read test: THE SLICE — batch read all devices at one timestamp for one stream.
+ * PMU slice read test: THE SLICE — batch read all sources at one timestamp for one PDC stream.
  * This is the core WAMS query pattern (islanding detection, section 3.1.1.1).
  *
- * Reads N device records (N=6 for 27-bus) in a single batch call.
- * Key format: "{streamId}:{deviceId}:{timestampMicros}"
+ * Reads N source records (N=6 for 27-bus) in a single batch call.
+ * Key format: "{streamId}:{sourceId}:{timestampMicros}"
  * Set: "pmu_frames_rt"
  */
 public class PmuSliceReadTest extends Test<PmuSliceRequest> {
@@ -25,11 +25,11 @@ public class PmuSliceReadTest extends Test<PmuSliceRequest> {
 
     @Override
     protected void execute(PmuSliceRequest request) {
-        List<String> deviceIds = request.getDeviceIds();
-        Key[] keys = new Key[deviceIds.size()];
+        List<String> sourceIds = request.getSourceIds();
+        Key[] keys = new Key[sourceIds.size()];
 
-        for (int i = 0; i < deviceIds.size(); i++) {
-            String keyStr = request.getStreamId() + ":" + deviceIds.get(i) + ":" + request.getTsMicros();
+        for (int i = 0; i < sourceIds.size(); i++) {
+            String keyStr = request.getStreamId() + ":" + sourceIds.get(i) + ":" + request.getTsMicros();
             keys[i] = new Key(namespace, PMU_SET, keyStr);
         }
 

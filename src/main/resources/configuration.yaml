@@ -17,7 +17,7 @@ testConfiguration:
   perseusId: 0
   pmuStreamCount: 10
   pmuStreamStartIndex: 1
-  pmuStreamPrefix: "stream"
+  pmuStreamPrefix: "pdc"
   pmuComplexCount: 137
   pmuRealCount: 144
   pmuFps: 200

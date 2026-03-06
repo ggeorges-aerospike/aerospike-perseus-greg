@@ -5,23 +5,23 @@ import com.aerospike.client.Value;
 import java.util.Map;
 
 /**
- * One device's worth of PMU data for a single frame.
- * Maps directly to the per-device record model in the Hitachi app.
+ * One source's (PMU IDCODE) worth of PMU data for a single frame.
+ * Maps directly to the per-source record model in the Hitachi app.
  */
-public class PmuDeviceData {
+public class PmuSourceData {
 
-    private final String deviceId;
+    private final String sourceId;
     private final Map<Value, Value> cxMap;  // globalIdx → [real, imag, quality]
     private final Map<Value, Value> rlMap;  // globalIdx → [value, quality]
 
-    public PmuDeviceData(String deviceId, Map<Value, Value> cxMap, Map<Value, Value> rlMap) {
-        this.deviceId = deviceId;
+    public PmuSourceData(String sourceId, Map<Value, Value> cxMap, Map<Value, Value> rlMap) {
+        this.sourceId = sourceId;
         this.cxMap = cxMap;
         this.rlMap = rlMap;
     }
 
-    public String getDeviceId() {
-        return deviceId;
+    public String getSourceId() {
+        return sourceId;
     }
 
     public Map<Value, Value> getCxMap() {

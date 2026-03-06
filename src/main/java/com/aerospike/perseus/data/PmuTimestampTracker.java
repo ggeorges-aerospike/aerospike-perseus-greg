@@ -14,10 +14,10 @@ public class PmuTimestampTracker {
     private static final int MAX_ENTRIES = 100_000;
 
     private final CopyOnWriteArrayList<Entry> entries = new CopyOnWriteArrayList<>();
-    private final List<String> deviceIds;
+    private final List<String> sourceIds;
 
-    public PmuTimestampTracker(List<String> deviceIds) {
-        this.deviceIds = deviceIds;
+    public PmuTimestampTracker(List<String> sourceIds) {
+        this.sourceIds = sourceIds;
     }
 
     public void record(String streamId, long tsMicros) {
@@ -37,11 +37,11 @@ public class PmuTimestampTracker {
             return null;
         }
         Entry e = entries.get(ThreadLocalRandom.current().nextInt(entries.size()));
-        return new PmuSliceRequest(e.streamId, e.tsMicros, deviceIds);
+        return new PmuSliceRequest(e.streamId, e.tsMicros, sourceIds);
     }
 
-    public List<String> getDeviceIds() {
-        return deviceIds;
+    public List<String> getSourceIds() {
+        return sourceIds;
     }
 
     private static class Entry {

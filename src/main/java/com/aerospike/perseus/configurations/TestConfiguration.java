@@ -19,7 +19,7 @@ public class TestConfiguration {
     // PMU workload configuration
     public Integer pmuStreamCount = 10;
     public Integer pmuStreamStartIndex = 1;
-    public String pmuStreamPrefix = "stream";
+    public String pmuStreamPrefix = "pdc";
     public Integer pmuDeviceCount = 6;
     public Integer pmuComplexCount = 137;
     public Integer pmuRealCount = 144;
