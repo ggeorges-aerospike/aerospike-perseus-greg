@@ -22,3 +22,5 @@ testConfiguration:
   pmuRealCount: 144
   pmuFps: 200
   pmuTtlSeconds: 43200
+  c37118ReceiverHost: "localhost"
+  c37118ReceiverPort: 4712

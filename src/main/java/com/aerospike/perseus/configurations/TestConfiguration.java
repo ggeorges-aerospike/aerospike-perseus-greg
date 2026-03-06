@@ -25,4 +25,8 @@ public class TestConfiguration {
     public Integer pmuRealCount = 144;
     public Integer pmuFps = 200;
     public Integer pmuTtlSeconds = 43200;  // 12 hours
+
+    // C37.118 TCP streaming configuration
+    public String c37118ReceiverHost = "localhost";
+    public Integer c37118ReceiverPort = 4712;
 }

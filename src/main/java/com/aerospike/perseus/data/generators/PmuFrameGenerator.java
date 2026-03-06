@@ -124,6 +124,14 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
         return Collections.unmodifiableList(sourceIds);
     }
 
+    public Map<String, List<Integer>> getComplexBySource() {
+        return Collections.unmodifiableMap(complexBySource);
+    }
+
+    public Map<String, List<Integer>> getRealBySource() {
+        return Collections.unmodifiableMap(realBySource);
+    }
+
     /**
      * Returns the current frame index (column counter) for the given stream.
      * Used by PmuWriteTest to determine downsample eligibility via modulo.

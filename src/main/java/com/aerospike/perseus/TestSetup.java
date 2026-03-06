@@ -5,6 +5,7 @@ import com.aerospike.perseus.configurations.TestConfiguration;
 import com.aerospike.perseus.configurations.ThreadsProvider;
 import com.aerospike.perseus.configurations.pojos.AerospikeConfiguration;
 import com.aerospike.perseus.data.PmuTimestampTracker;
+import com.aerospike.perseus.data.c37118.C37118Encoder;
 import com.aerospike.perseus.data.generators.PmuFrameGenerator;
 import com.aerospike.perseus.data.generators.PmuSliceRequestGenerator;
 import com.aerospike.perseus.presentation.TotalTpsCounter;
@@ -39,6 +40,15 @@ public class TestSetup {
 
         testList.add(new PmuWriteTest(arguments, pmuFrameGenerator, pmuTracker, testConfig.pmuTtlSeconds));
         testList.add(new PmuSliceReadTest(arguments, pmuSliceGenerator));
+
+        // C37.118 TCP streaming test
+        var c37118Encoder = new C37118Encoder(
+                pmuFrameGenerator.getSourceIds(),
+                pmuFrameGenerator.getComplexBySource(),
+                pmuFrameGenerator.getRealBySource(),
+                testConfig.pmuFps);
+        testList.add(new PmuC37118StreamTest(arguments, pmuFrameGenerator, c37118Encoder,
+                testConfig.c37118ReceiverHost, testConfig.c37118ReceiverPort));
     }
 
     public void startTest() {
