@@ -16,7 +16,7 @@ public abstract class Test<T> extends TPSLogger {
     protected final String setName;
     private final Thread[] threads = new Thread[maxPoolSize];
     private final boolean[] terminated = new boolean[maxPoolSize];
-    private static final int maxPoolSize = 500;
+    private static final int maxPoolSize = 1000;
     protected final AtomicInteger threadCount = new AtomicInteger(  0);
     private final TotalTpsCounter totalTpsCounter;
 

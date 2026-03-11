@@ -61,8 +61,13 @@ public class C37118Encoder {
     /**
      * Encode a CFG-2 configuration frame describing the PMU topology.
      * Sent once at the start of a TCP connection.
+     *
+     * @param tsMicros timestamp for the frame header
+     * @param streamIdcode unique PDC IDCODE for this stream (1-65535).
+     *                     Used by the receiver to create a stable stream ID
+     *                     that survives reconnections.
      */
-    public byte[] encodeCfg2Frame(long tsMicros) {
+    public byte[] encodeCfg2Frame(long tsMicros, int streamIdcode) {
         // Calculate CFG-2 frame size
         int size = HEADER_SIZE;
         size += CFG2_TIMEBASE_SIZE;  // TIME_BASE
@@ -93,8 +98,8 @@ public class C37118Encoder {
         ByteBuffer buf = ByteBuffer.allocate(size);
         buf.order(ByteOrder.BIG_ENDIAN);
 
-        // Header
-        writeHeader(buf, SYNC_CFG2, size, pdcIdcode, tsMicros);
+        // Header — use stream-specific IDCODE so receiver can map to a stable stream ID
+        writeHeader(buf, SYNC_CFG2, size, streamIdcode, tsMicros);
 
         // TIME_BASE
         buf.putInt(TIME_BASE);
@@ -164,13 +169,16 @@ public class C37118Encoder {
     /**
      * Encode a DATA frame from a PmuFrame.
      * Called once per frame at 200 FPS.
+     * Derives a unique PDC IDCODE from the frame's stream ID so the receiver
+     * can map each stream to a stable identifier that survives reconnections.
      */
     public byte[] encodeDataFrame(PmuFrame frame) {
+        int streamIdcode = extractStreamIdcode(frame.getStreamId());
         ByteBuffer buf = ByteBuffer.allocate(dataFrameSize);
         buf.order(ByteOrder.BIG_ENDIAN);
 
-        // Header
-        writeHeader(buf, SYNC_DATA, dataFrameSize, pdcIdcode, frame.getTsMicros());
+        // Header — per-stream IDCODE for stable stream mapping
+        writeHeader(buf, SYNC_DATA, dataFrameSize, streamIdcode, frame.getTsMicros());
 
         // PDC aggregate STAT word
         buf.putShort((short) STAT_OK);
@@ -268,6 +276,20 @@ public class C37118Encoder {
             return Integer.parseInt(sourceId.replaceAll("[^0-9]", ""));
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    /**
+     * Extract a unique PDC IDCODE from the stream ID string.
+     * E.g., "c37_42" → 43 (1-based, since IDCODE 0 is reserved).
+     * Falls back to the configured pdcIdcode if the stream ID doesn't contain a number.
+     */
+    private int extractStreamIdcode(String streamId) {
+        try {
+            int idx = Integer.parseInt(streamId.replaceAll("[^0-9]", ""));
+            return idx + 1; // 1-based to avoid IDCODE 0
+        } catch (NumberFormatException e) {
+            return pdcIdcode;
         }
     }
 }

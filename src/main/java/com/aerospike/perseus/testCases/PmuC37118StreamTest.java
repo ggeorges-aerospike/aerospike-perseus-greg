@@ -35,15 +35,22 @@ public class PmuC37118StreamTest extends Test<PmuFrame> {
 
     @Override
     protected void execute(PmuFrame frame) {
-        try {
-            SocketContext ctx = ensureConnected(frame);
-            byte[] encoded = encoder.encodeDataFrame(frame);
-            ctx.outputStream.write(encoded);
-            ctx.outputStream.flush();
-        } catch (IOException e) {
-            // Connection lost — close and let next call reconnect
-            closeContext();
-            throw new RuntimeException("C37.118 TCP write failed: " + e.getMessage(), e);
+        for (int attempt = 0; attempt < 5; attempt++) {
+            try {
+                SocketContext ctx = ensureConnected(frame);
+                byte[] encoded = encoder.encodeDataFrame(frame);
+                ctx.outputStream.write(encoded);
+                ctx.outputStream.flush();
+                return; // success
+            } catch (IOException e) {
+                closeContext();
+                if (attempt < 4) {
+                    try { Thread.sleep(1000L * (attempt + 1)); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -64,13 +71,16 @@ public class PmuC37118StreamTest extends Test<PmuFrame> {
         ctx = new SocketContext(socket, out);
         socketCtx.set(ctx);
 
-        // Send CFG-2 configuration frame before any data
-        byte[] cfg2 = encoder.encodeCfg2Frame(frame.getTsMicros());
+        // Send CFG-2 configuration frame before any data.
+        // Use per-stream IDCODE derived from the stream ID so the receiver
+        // creates a stable stream identity that survives reconnections.
+        int streamIdcode = extractStreamIdcode(frame.getStreamId());
+        byte[] cfg2 = encoder.encodeCfg2Frame(frame.getTsMicros(), streamIdcode);
         out.write(cfg2);
         out.flush();
 
         System.out.println("[C37118] Connected and sent CFG-2 (" + cfg2.length +
-                " bytes) from thread " + Thread.currentThread().getName());
+                " bytes, IDCODE=" + streamIdcode + ") from thread " + Thread.currentThread().getName());
         return ctx;
     }
 
@@ -87,6 +97,15 @@ public class PmuC37118StreamTest extends Test<PmuFrame> {
     @Override
     public String[] getHeader() {
         return "C37.118\nStream".split("\n");
+    }
+
+    private static int extractStreamIdcode(String streamId) {
+        try {
+            int idx = Integer.parseInt(streamId.replaceAll("[^0-9]", ""));
+            return idx + 1; // 1-based, IDCODE 0 is reserved in C37.118
+        } catch (NumberFormatException e) {
+            return 1;
+        }
     }
 
     private static class SocketContext {

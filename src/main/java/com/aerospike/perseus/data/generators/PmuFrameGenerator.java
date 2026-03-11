@@ -110,8 +110,14 @@ public class PmuFrameGenerator extends BaseGenerator<PmuFrame> {
             throw new RuntimeException("Failed to load PMU CSV data", e);
         }
 
-        // Initialize per-stream timestamps from now
-        long baseMicros = System.currentTimeMillis() * 1000;
+        // Initialize per-stream timestamps from now, aligned to the GPS grid.
+        // A real PDC sends timestamps where FRACSEC is an exact multiple of
+        // (1_000_000 / DATA_RATE). At 200 FPS this means every 5,000μs.
+        // Snap baseMicros to the nearest grid point so all timestamps are
+        // deterministic multiples of intervalMicros — matching how Hitachi's
+        // range queries compute keys.
+        long nowMicros = System.currentTimeMillis() * 1000;
+        long baseMicros = (nowMicros / intervalMicros) * intervalMicros;
         this.nextTimestamps = new AtomicLong[streamCount];
         this.columnCounters = new AtomicLong[streamCount];
         for (int i = 0; i < streamCount; i++) {
