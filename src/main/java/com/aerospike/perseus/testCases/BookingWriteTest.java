@@ -3,6 +3,7 @@ package com.aerospike.perseus.testCases;
 import com.aerospike.client.AerospikeException;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Key;
+import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.perseus.data.Booking;
 import com.aerospike.perseus.data.generators.BookingGenerator;
 
@@ -25,19 +26,21 @@ public class BookingWriteTest extends Test<Booking> {
 
     private final int counterBatch;
     private final AtomicLong sinceLastCounterPush = new AtomicLong();
+    private final WritePolicy writePolicy = new WritePolicy();
 
     public BookingWriteTest(TestCaseConstructorArguments arguments, BookingGenerator generator, int counterBatch) {
         super(arguments, generator);
         this.counterBatch = Math.max(counterBatch, 1);
+        this.writePolicy.sendKey = true;   // keys visible in data browsers (Voyager)
     }
 
     @Override
     protected void execute(Booking booking) {
         try {
-            client.put(null, new Key(namespace, setName, booking.id), booking.bins);
+            client.put(writePolicy, new Key(namespace, setName, booking.id), booking.bins);
             if (sinceLastCounterPush.incrementAndGet() % counterBatch == 0) {
                 int shard = 1 + ThreadLocalRandom.current().nextInt(COUNTER_SHARDS - 1);
-                client.add(null, new Key(namespace, COUNTER_SET, "bookings:" + shard),
+                client.add(writePolicy, new Key(namespace, COUNTER_SET, "bookings:" + shard),
                         new Bin("count", counterBatch));
             }
         } catch (AerospikeException ignored) {
