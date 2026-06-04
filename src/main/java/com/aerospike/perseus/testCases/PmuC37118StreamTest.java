@@ -21,16 +21,18 @@ public class PmuC37118StreamTest extends Test<PmuFrame> {
     private final C37118Encoder encoder;
     private final String receiverHost;
     private final int receiverPort;
+    private final long intervalMs;  // sleep between frames for real-time pacing
     private final ThreadLocal<SocketContext> socketCtx = new ThreadLocal<>();
 
     public PmuC37118StreamTest(TestCaseConstructorArguments arguments,
                                PmuFrameGenerator generator,
                                C37118Encoder encoder,
-                               String receiverHost, int receiverPort) {
+                               String receiverHost, int receiverPort, int fps) {
         super(arguments, generator);
         this.encoder = encoder;
         this.receiverHost = receiverHost;
         this.receiverPort = receiverPort;
+        this.intervalMs = (fps > 0) ? 1000L / fps : 0;
     }
 
     @Override
@@ -41,6 +43,12 @@ public class PmuC37118StreamTest extends Test<PmuFrame> {
                 byte[] encoded = encoder.encodeDataFrame(frame);
                 ctx.outputStream.write(encoded);
                 ctx.outputStream.flush();
+
+                // Pace to real-time FPS (e.g., 5ms sleep for 200 FPS)
+                if (intervalMs > 0) {
+                    Thread.sleep(intervalMs);
+                }
+
                 return; // success
             } catch (IOException e) {
                 closeContext();
@@ -50,6 +58,9 @@ public class PmuC37118StreamTest extends Test<PmuFrame> {
                         return;
                     }
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
         }
     }

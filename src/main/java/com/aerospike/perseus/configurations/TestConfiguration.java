@@ -29,4 +29,11 @@ public class TestConfiguration {
     // C37.118 TCP streaming configuration
     public String c37118ReceiverHost = "localhost";
     public Integer c37118ReceiverPort = 4712;
+
+    // Airline booking workload configuration (airline-demo dashboard)
+    public String bookingSet = "bookings";
+    public Integer bookingPassengerCount = 200000;
+    public Integer bookingFlightCount = 5000;
+    public Integer bookingSeededCount = 300000;
+    public Integer bookingCounterBatch = 100;
 }

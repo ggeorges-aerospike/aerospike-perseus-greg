@@ -6,6 +6,7 @@ import com.aerospike.perseus.configurations.ThreadsProvider;
 import com.aerospike.perseus.configurations.pojos.AerospikeConfiguration;
 import com.aerospike.perseus.data.PmuTimestampTracker;
 import com.aerospike.perseus.data.c37118.C37118Encoder;
+import com.aerospike.perseus.data.generators.BookingGenerator;
 import com.aerospike.perseus.data.generators.PmuFrameGenerator;
 import com.aerospike.perseus.data.generators.PmuSliceRequestGenerator;
 import com.aerospike.perseus.presentation.TotalTpsCounter;
@@ -48,7 +49,17 @@ public class TestSetup {
                 pmuFrameGenerator.getRealBySource(),
                 testConfig.pmuFps);
         testList.add(new PmuC37118StreamTest(arguments, pmuFrameGenerator, c37118Encoder,
-                testConfig.c37118ReceiverHost, testConfig.c37118ReceiverPort));
+                testConfig.c37118ReceiverHost, testConfig.c37118ReceiverPort, testConfig.pmuFps));
+
+        // Airline booking workload (airline-demo dashboard; threads.yaml keys
+        // bookingwrite / bookingread)
+        var bookingArguments = new TestCaseConstructorArguments(
+                client, aerospikeConfig.namespace, testConfig.bookingSet, totalTpsCounter);
+        var bookingGenerator = new BookingGenerator(
+                testConfig.perseusId, testConfig.bookingPassengerCount, testConfig.bookingFlightCount);
+        testList.add(new BookingWriteTest(bookingArguments, bookingGenerator, testConfig.bookingCounterBatch));
+        testList.add(new BookingReadTest(bookingArguments, bookingGenerator,
+                testConfig.bookingSeededCount, testConfig.bookingPassengerCount, testConfig.bookingFlightCount));
     }
 
     public void startTest() {

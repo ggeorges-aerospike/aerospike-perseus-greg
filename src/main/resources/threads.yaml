@@ -1,3 +1,5 @@
 pmuwrite: 0
 pmusliceread: 0
 pmuc37118stream: 0
+bookingwrite: 0
+bookingread: 0

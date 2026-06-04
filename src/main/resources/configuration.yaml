@@ -24,3 +24,8 @@ testConfiguration:
   pmuTtlSeconds: 43200
   c37118ReceiverHost: "localhost"
   c37118ReceiverPort: 4712
+  bookingSet: "bookings"
+  bookingPassengerCount: 200000
+  bookingFlightCount: 5000
+  bookingSeededCount: 300000
+  bookingCounterBatch: 100
