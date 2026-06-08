@@ -28,8 +28,11 @@ public class PsegGenerator implements Iterator<PsegGenerator.Write> {
     @Override public boolean hasNext() { return true; }
 
     @Override public Write next() {
-        long s = seq.getAndIncrement();
-        long personId = offset + (s / avgSegmentsPerPerson);
+        // Spread writes RANDOMLY across the persons created so far (no single hot
+        // "current" person record) — matches production, where writes fan out
+        // across many persons, and lets batches touch distinct keys.
+        long persons = Math.max(1, seq.getAndIncrement() / avgSegmentsPerPerson);
+        long personId = offset + ThreadLocalRandom.current().nextLong(persons);
         int segId = 1 + ThreadLocalRandom.current().nextInt(segmentUniverse);
         return new Write(personId, segId);
     }

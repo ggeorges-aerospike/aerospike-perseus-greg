@@ -49,6 +49,7 @@ public class TestSetup {
         testList.add(new PsegReadTest(psegArgs, pseg));
         testList.add(new PsegPointReadTest(psegArgs, pseg));
         testList.add(new PsegBatchReadTest(psegArgs, pseg, def(cfg.readBatchSize, 50)));
+        testList.add(new PsegBatchWriteTest(psegArgs, pseg, def(cfg.writeBatchSize, 100), ttl));
 
         // kepler — tbl_url_segments -> set "url"
         var urlArgs = new TestCaseConstructorArguments(client, ns, "url", totalTpsCounter);
@@ -57,6 +58,7 @@ public class TestSetup {
         testList.add(new UrlWriteTest(urlArgs, url, ttl));
         testList.add(new UrlReadTest(urlArgs, url));
         testList.add(new UrlPointReadTest(urlArgs, url));
+        testList.add(new UrlBatchWriteTest(urlArgs, url, def(cfg.writeBatchSize, 100), ttl));
 
         // kepler — tbl_segments -> set "seg"
         var segArgs = new TestCaseConstructorArguments(client, ns, "seg", totalTpsCounter);
@@ -64,12 +66,14 @@ public class TestSetup {
         testList.add(new SegWriteTest(segArgs, seg, ttl));
         testList.add(new SegUpdateTest(segArgs, seg, ttl));
         testList.add(new SegReadTest(segArgs, seg));
+        testList.add(new SegBatchWriteTest(segArgs, seg, def(cfg.writeBatchSize, 100), ttl));
 
         // corvus — draco.bids -> set "bids"
         var bidArgs = new TestCaseConstructorArguments(client, ns, "bids", totalTpsCounter);
         var bid = new BidGenerator(pid, def(cfg.corvusSmallBlobBytes, 800), def(cfg.corvusLargeBlobBytes, 30_000), def(cfg.corvusLargeBlobRatio, 0.4));
         testList.add(new BidWriteTest(bidArgs, bid, def(cfg.corvusTtlSeconds, 172800)));
         testList.add(new BidReadTest(bidArgs, bid));
+        testList.add(new BidBatchWriteTest(bidArgs, bid, def(cfg.writeBatchSize, 100), def(cfg.corvusTtlSeconds, 172800)));
     }
 
     private static int def(Integer v, int d) { return v != null ? v : d; }

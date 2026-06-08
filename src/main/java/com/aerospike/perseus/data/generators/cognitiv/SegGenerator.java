@@ -33,8 +33,9 @@ public class SegGenerator implements Iterator<SegGenerator.Write> {
 
     @Override public Write next() {
         ThreadLocalRandom r = ThreadLocalRandom.current();
-        long s = seq.getAndIncrement();
-        long identity = offset + (s / avgTypesPerIdentity);
+        // Spread randomly across identities created so far (no hot "current" record).
+        long identities = Math.max(1, seq.getAndIncrement() / avgTypesPerIdentity);
+        long identity = offset + r.nextLong(identities);
         int typeId = 1 + r.nextInt(typeUniverse);
         Map<Integer, Long> segments = new HashMap<>(innerSegmentsPerType * 2);
         for (int i = 0; i < innerSegmentsPerType; i++) segments.put(1 + r.nextInt(1_000_000), r.nextLong());

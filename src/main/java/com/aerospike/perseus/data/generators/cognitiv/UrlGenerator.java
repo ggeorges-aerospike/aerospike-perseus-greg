@@ -35,8 +35,9 @@ public class UrlGenerator implements Iterator<UrlGenerator.Write> {
 
     @Override public Write next() {
         ThreadLocalRandom r = ThreadLocalRandom.current();
-        long s = seq.getAndIncrement();
-        long urlHash = offset + (s / avgProvidersPerUrl);
+        // Spread randomly across urls created so far (no hot "current" record).
+        long urls = Math.max(1, seq.getAndIncrement() / avgProvidersPerUrl);
+        long urlHash = offset + r.nextLong(urls);
         int providerId = 1 + r.nextInt(providerUniverse);
         List<Integer> segments = new ArrayList<>(avgSegmentsPerUrl);
         for (int i = 0; i < avgSegmentsPerUrl; i++) segments.add(1 + r.nextInt(segmentUniverse));
