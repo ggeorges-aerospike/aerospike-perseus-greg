@@ -16,7 +16,7 @@ import java.util.Arrays;
 /** Insert (url_hash, provider_id): map-put {provider -> [refresh_after, request_count, segments[]]} into `prov`. */
 public class UrlWriteTest extends Test<UrlGenerator.Write> {
     static final String BIN = "prov";
-    private final MapPolicy mapPolicy = new MapPolicy(MapOrder.UNORDERED, MapWriteMode.UPDATE);
+    private final MapPolicy mapPolicy = new MapPolicy(MapOrder.KEY_ORDERED, MapWriteMode.UPDATE);
     private final WritePolicy wp = new WritePolicy();
 
     public UrlWriteTest(TestCaseConstructorArguments args, UrlGenerator gen, int ttlSeconds) {

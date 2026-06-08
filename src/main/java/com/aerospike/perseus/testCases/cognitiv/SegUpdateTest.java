@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *  a single map-put on the `segs` bin that also refreshes the record TTL. */
 public class SegUpdateTest extends Test<Long> {
     private final SegGenerator gen;
-    private final MapPolicy mapPolicy = new MapPolicy(MapOrder.UNORDERED, MapWriteMode.UPDATE);
+    private final MapPolicy mapPolicy = new MapPolicy(MapOrder.KEY_ORDERED, MapWriteMode.UPDATE);
     private final WritePolicy wp = new WritePolicy();
 
     public SegUpdateTest(TestCaseConstructorArguments args, SegGenerator gen, int ttlSeconds) {

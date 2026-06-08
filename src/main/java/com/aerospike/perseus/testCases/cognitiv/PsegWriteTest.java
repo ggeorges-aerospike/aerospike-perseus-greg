@@ -14,7 +14,9 @@ import com.aerospike.perseus.testCases.TestCaseConstructorArguments;
 /** Insert one (person_id, user_segment_id): map-put {segId -> now} into the person's `segs` map. */
 public class PsegWriteTest extends Test<PsegGenerator.Write> {
     static final String BIN = "segs";
-    private final MapPolicy mapPolicy = new MapPolicy(MapOrder.UNORDERED, MapWriteMode.UPDATE);
+    // KEY_ORDERED (cookbook best practice): segments stored sorted -> fast getByKey
+    // and supports getByKeyRange / pagination on the person's segment map.
+    private final MapPolicy mapPolicy = new MapPolicy(MapOrder.KEY_ORDERED, MapWriteMode.UPDATE);
     private final WritePolicy wp = new WritePolicy();
 
     public PsegWriteTest(TestCaseConstructorArguments args, PsegGenerator gen, int ttlSeconds) {
