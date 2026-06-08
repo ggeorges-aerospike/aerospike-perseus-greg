@@ -4,122 +4,96 @@ import com.aerospike.perseus.aerospike.AerospikeClientProvider;
 import com.aerospike.perseus.configurations.TestConfiguration;
 import com.aerospike.perseus.configurations.ThreadsProvider;
 import com.aerospike.perseus.configurations.pojos.AerospikeConfiguration;
-import com.aerospike.perseus.data.generators.*;
-import com.aerospike.perseus.data.generators.key.BatchedFromKeyCacheGenerator;
-import com.aerospike.perseus.data.generators.key.ProbabilisticKeyCache;
-import com.aerospike.perseus.data.generators.key.KeyGenerator;
-import com.aerospike.perseus.presentation.TotalTpsCounter;
-import com.aerospike.perseus.testCases.*;
-import com.aerospike.perseus.testCases.search.GeospatialSearchTest;
-import com.aerospike.perseus.testCases.search.NumericSearchTest;
-import com.aerospike.perseus.testCases.search.RangeQueryTest;
-import com.aerospike.perseus.testCases.search.StringSearchTest;
+import com.aerospike.perseus.data.generators.cognitiv.*;
 import com.aerospike.perseus.presentation.TPSLogger;
+import com.aerospike.perseus.presentation.TotalTpsCounter;
+import com.aerospike.perseus.testCases.Test;
+import com.aerospike.perseus.testCases.TestCaseConstructorArguments;
+import com.aerospike.perseus.testCases.cognitiv.*;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+/**
+ * Cognitiv workload wiring (Scylla -> Aerospike). Registers a test case per real
+ * query against four sets — kepler: pseg / url / seg, corvus: bids — all in the
+ * namespace from configuration.yaml. The deployed client runs only the threads
+ * its threads.yaml enables (kepler clients drive pseg/url/seg in ns=kepler,
+ * corvus clients drive bids in ns=corvus). See COGNITIV_DATA_MODEL.md.
+ *
+ * threads.yaml keys (class name minus "Test", lowercased):
+ *   psegwrite psegread psegpointread psegbatchread
+ *   urlwrite urlread urlpointread
+ *   segwrite segupdate segread
+ *   bidwrite bidread
+ */
 public class TestSetup {
     private final ThreadsProvider threadsProvider = new ThreadsProvider();
     private final ArrayList<Test> testList = new ArrayList<>();
-    private final WriteTest writeTest;
     private final TotalTpsCounter totalTpsCounter;
 
-    public TestSetup(AerospikeConfiguration aerospikeConfig, TestConfiguration testConfig) throws InterruptedException {
-
-        var client = AerospikeClientProvider.getClient(aerospikeConfig);
-        var keyProvider = new KeyGenerator(client, testConfig.perseusId, aerospikeConfig.namespace);
-        var cachedKeyProvider = keyProvider.getCache();
-        var probabilisticKeyCache = new ProbabilisticKeyCache(cachedKeyProvider, testConfig.readHitRatio);
-        var timePeriodGenerator = new TimePeriodGenerator(testConfig.rangeQueryConfiguration, cachedKeyProvider);
-        var dummyStringGenerator = new DummyBlobGenerator(testConfig.recordSize);
-        var geoPointGenerator = new GeoPointGenerator();
-        var geoJsonGenerator = new GeoJsonGenerator(geoPointGenerator);
-        var recordGenerator = new RecordGenerator(dummyStringGenerator, geoJsonGenerator, keyProvider);
-        var batchSimpleRecordsGenerator = new BatchRecordsGenerator(recordGenerator, testConfig.writeBatchSize);
-        var batchCachedKeyGenerator = new BatchedFromKeyCacheGenerator(keyProvider.getCache(), testConfig.readBatchSize);
+    public TestSetup(AerospikeConfiguration aero, TestConfiguration cfg) throws InterruptedException {
+        var client = AerospikeClientProvider.getClient(aero);
         totalTpsCounter = new TotalTpsCounter();
+        String ns = aero.namespace;
+        int pid = cfg.perseusId;
+        int ttl = def(cfg.keplerTtlSeconds, 0);
 
-        var arguments = new TestCaseConstructorArguments(client, aerospikeConfig.namespace, aerospikeConfig.set, totalTpsCounter);
+        // kepler — tbl_person_identity_segments -> set "pseg"
+        var psegArgs = new TestCaseConstructorArguments(client, ns, "pseg", totalTpsCounter);
+        var pseg = new PsegGenerator(pid, def(cfg.keplerAvgSegmentsPerPerson, 20), def(cfg.keplerSegmentUniverse, 500_000));
+        testList.add(new PsegWriteTest(psegArgs, pseg, ttl));
+        testList.add(new PsegReadTest(psegArgs, pseg));
+        testList.add(new PsegPointReadTest(psegArgs, pseg));
+        testList.add(new PsegBatchReadTest(psegArgs, pseg, def(cfg.readBatchSize, 50)));
 
-        writeTest = new WriteTest(arguments, recordGenerator);
-        testList.add(writeTest);
-        testList.add(new ReadTest(arguments, probabilisticKeyCache, testConfig.readHitRatio));
-        testList.add(new UpdateTest(arguments, cachedKeyProvider));
-        testList.add(new DeleteTest(arguments, cachedKeyProvider));
-        testList.add(new ExpressionReadTest(arguments, cachedKeyProvider));
-        testList.add(new ExpressionWriteTest(arguments, cachedKeyProvider));
-        testList.add(new BatchWriteTest(arguments, batchSimpleRecordsGenerator, testConfig.writeBatchSize));
-        testList.add(new BatchReadTest(arguments, batchCachedKeyGenerator, testConfig.readBatchSize));
-        if(testConfig.numericIndex) {
-            testList.add(new NumericSearchTest(arguments, cachedKeyProvider));
-        }
-        if(testConfig.stringIndex) {
-            testList.add(new StringSearchTest(arguments, cachedKeyProvider));
-        }
-        if(testConfig.geoSpatialIndex) {
-            testList.add(new GeospatialSearchTest(arguments, geoPointGenerator));
-        }
-        try {
-            testList.add(new UDFTest(arguments, cachedKeyProvider));
-        } catch (IOException e) {
-            System.out.println("UDF function couldn't be loaded. The UDF test is therefore disabled.");
-        }
-        if(testConfig.udfAggregation) {
-            try {
-                testList.add(new UDFAggregationTest(arguments, timePeriodGenerator));
-            } catch (IOException e) {
-                System.out.println("UDF Aggregation function couldn't be loaded. The UDF Aggregation test is therefore disabled.");
-            }
-        }
-        if(testConfig.rangeQuery) {
-            try {
-                testList.add(new RangeQueryTest(arguments, timePeriodGenerator));
-            } catch (IOException e) {
-                System.out.println("UDF Aggregation function couldn't be loaded. The UDF Aggregation test is therefore disabled.");
-            }
-        }
+        // kepler — tbl_url_segments -> set "url"
+        var urlArgs = new TestCaseConstructorArguments(client, ns, "url", totalTpsCounter);
+        var url = new UrlGenerator(pid, def(cfg.keplerAvgProvidersPerUrl, 2), def(cfg.keplerProviderUniverse, 8),
+                def(cfg.keplerAvgSegmentsPerUrl, 5), def(cfg.keplerSegmentUniverse, 500_000));
+        testList.add(new UrlWriteTest(urlArgs, url, ttl));
+        testList.add(new UrlReadTest(urlArgs, url));
+        testList.add(new UrlPointReadTest(urlArgs, url));
+
+        // kepler — tbl_segments -> set "seg"
+        var segArgs = new TestCaseConstructorArguments(client, ns, "seg", totalTpsCounter);
+        var seg = new SegGenerator(pid, def(cfg.keplerTypeUniverse, 16), def(cfg.keplerAvgTypesPerIdentity, 3), def(cfg.keplerInnerSegmentsPerType, 10));
+        testList.add(new SegWriteTest(segArgs, seg, ttl));
+        testList.add(new SegUpdateTest(segArgs, seg, ttl));
+        testList.add(new SegReadTest(segArgs, seg));
+
+        // corvus — draco.bids -> set "bids"
+        var bidArgs = new TestCaseConstructorArguments(client, ns, "bids", totalTpsCounter);
+        var bid = new BidGenerator(pid, def(cfg.corvusSmallBlobBytes, 800), def(cfg.corvusLargeBlobBytes, 30_000), def(cfg.corvusLargeBlobRatio, 0.4));
+        testList.add(new BidWriteTest(bidArgs, bid, def(cfg.corvusTtlSeconds, 172800)));
+        testList.add(new BidReadTest(bidArgs, bid));
     }
+
+    private static int def(Integer v, int d) { return v != null ? v : d; }
+    private static double def(Double v, double d) { return v != null ? v : d; }
 
     public void startTest() {
-        warmUp();
-
+        totalTpsCounter.getTPS();   // reset baseline before the first interval
         var scheduledExecutorService = Executors.newScheduledThreadPool(1);
-        scheduledExecutorService.scheduleAtFixedRate(
-                this::setThread, 0, 1, TimeUnit.SECONDS);
-    }
-
-    private void warmUp() {
-        writeTest.setThreads(5);
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        writeTest.getTPS();
-        totalTpsCounter.getTPS();
+        scheduledExecutorService.scheduleAtFixedRate(this::setThread, 0, 1, TimeUnit.SECONDS);
     }
 
     private void setThread() {
         var threads = threadsProvider.getThreads();
         var map = testList.stream().collect(Collectors.toMap(
-                testCase -> testCase.getClass().getSimpleName().replace("Test", "").toLowerCase(),
-                testCase-> testCase));
-        for (String thread: threads.keySet()) {
-            if(map.containsKey(thread.toLowerCase()))
+                t -> t.getClass().getSimpleName().replace("Test", "").toLowerCase(),
+                t -> t));
+        for (String thread : threads.keySet())
+            if (map.containsKey(thread.toLowerCase()))
                 map.get(thread.toLowerCase()).setThreads(threads.get(thread));
-        }
     }
 
     public List<TPSLogger> getLoggableTestList() {
-        return testList.stream().map(test -> (TPSLogger)test).toList();
+        return testList.stream().map(t -> (TPSLogger) t).toList();
     }
 
-    public TotalTpsCounter getTotalTps() {
-        return totalTpsCounter;
-    }
+    public TotalTpsCounter getTotalTps() { return totalTpsCounter; }
 }
