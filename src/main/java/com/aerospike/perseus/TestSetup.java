@@ -40,33 +40,37 @@ public class TestSetup {
         totalTpsCounter = new TotalTpsCounter();
         String ns = aero.namespace;
         int pid = cfg.perseusId;
-        int ttl = def(cfg.keplerTtlSeconds, 0);
+        // Per-table TTL: person_identity_segments = 1 day; cache tables (url/seg) = seconds-scale.
+        int legacy = def(cfg.keplerTtlSeconds, 0);
+        int psegTtl = def(cfg.keplerPsegTtlSeconds, legacy != 0 ? legacy : 86400);
+        int urlTtl  = def(cfg.keplerUrlTtlSeconds,  legacy != 0 ? legacy : 3600);
+        int segTtl  = def(cfg.keplerSegTtlSeconds,  legacy != 0 ? legacy : 3600);
 
         // kepler — tbl_person_identity_segments -> set "pseg"
         var psegArgs = new TestCaseConstructorArguments(client, ns, "pseg", totalTpsCounter);
         var pseg = new PsegGenerator(pid, def(cfg.keplerAvgSegmentsPerPerson, 20), def(cfg.keplerSegmentUniverse, 500_000));
-        testList.add(new PsegWriteTest(psegArgs, pseg, ttl));
+        testList.add(new PsegWriteTest(psegArgs, pseg, psegTtl));
         testList.add(new PsegReadTest(psegArgs, pseg));
         testList.add(new PsegPointReadTest(psegArgs, pseg));
         testList.add(new PsegBatchReadTest(psegArgs, pseg, def(cfg.readBatchSize, 50)));
-        testList.add(new PsegBatchWriteTest(psegArgs, pseg, def(cfg.writeBatchSize, 100), ttl));
+        testList.add(new PsegBatchWriteTest(psegArgs, pseg, def(cfg.writeBatchSize, 100), psegTtl));
 
         // kepler — tbl_url_segments -> set "url"
         var urlArgs = new TestCaseConstructorArguments(client, ns, "url", totalTpsCounter);
         var url = new UrlGenerator(pid, def(cfg.keplerAvgProvidersPerUrl, 2), def(cfg.keplerProviderUniverse, 8),
                 def(cfg.keplerAvgSegmentsPerUrl, 5), def(cfg.keplerSegmentUniverse, 500_000));
-        testList.add(new UrlWriteTest(urlArgs, url, ttl));
+        testList.add(new UrlWriteTest(urlArgs, url, urlTtl));
         testList.add(new UrlReadTest(urlArgs, url));
         testList.add(new UrlPointReadTest(urlArgs, url));
-        testList.add(new UrlBatchWriteTest(urlArgs, url, def(cfg.writeBatchSize, 100), ttl));
+        testList.add(new UrlBatchWriteTest(urlArgs, url, def(cfg.writeBatchSize, 100), urlTtl));
 
         // kepler — tbl_segments -> set "seg"
         var segArgs = new TestCaseConstructorArguments(client, ns, "seg", totalTpsCounter);
         var seg = new SegGenerator(pid, def(cfg.keplerTypeUniverse, 16), def(cfg.keplerAvgTypesPerIdentity, 3), def(cfg.keplerInnerSegmentsPerType, 10));
-        testList.add(new SegWriteTest(segArgs, seg, ttl));
-        testList.add(new SegUpdateTest(segArgs, seg, ttl));
+        testList.add(new SegWriteTest(segArgs, seg, segTtl));
+        testList.add(new SegUpdateTest(segArgs, seg, segTtl));
         testList.add(new SegReadTest(segArgs, seg));
-        testList.add(new SegBatchWriteTest(segArgs, seg, def(cfg.writeBatchSize, 100), ttl));
+        testList.add(new SegBatchWriteTest(segArgs, seg, def(cfg.writeBatchSize, 100), segTtl));
 
         // corvus — draco.bids -> set "bids"
         var bidArgs = new TestCaseConstructorArguments(client, ns, "bids", totalTpsCounter);

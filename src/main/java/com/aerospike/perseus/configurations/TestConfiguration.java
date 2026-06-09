@@ -26,7 +26,12 @@ public class TestConfiguration {
     public Integer keplerTypeUniverse;           // seg: distinct segment_type_id space
     public Integer keplerAvgTypesPerIdentity;    // seg: records per identity
     public Integer keplerInnerSegmentsPerType;   // seg: size of segments map<int,bigint>
-    public Integer keplerTtlSeconds;             // kepler per-record TTL (0 = none)
+    // Per-table TTL — Cognitiv: person_identity_segments (seg keyspace) = 1 day;
+    // url_segments + segments (cache keyspace) = seconds-scale.
+    public Integer keplerPsegTtlSeconds;         // person_identity_segments: 86400 (1 day)
+    public Integer keplerUrlTtlSeconds;          // url_segments (cache): seconds-scale
+    public Integer keplerSegTtlSeconds;          // segments (cache): seconds-scale
+    public Integer keplerTtlSeconds;             // legacy fallback (unused if the three above are set)
 
     // --- Cognitiv corvus model knobs ---
     public Integer corvusSmallBlobBytes;         // ~800
