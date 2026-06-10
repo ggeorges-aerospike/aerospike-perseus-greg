@@ -54,6 +54,7 @@ public class TestSetup {
         testList.add(new PsegPointReadTest(psegArgs, pseg));
         testList.add(new PsegBatchReadTest(psegArgs, pseg, def(cfg.readBatchSize, 50)));
         testList.add(new PsegBatchWriteTest(psegArgs, pseg, def(cfg.writeBatchSize, 100), psegTtl));
+        testList.add(new PsegDeleteTest(psegArgs, pseg));
 
         // kepler — tbl_url_segments -> set "url"
         var urlArgs = new TestCaseConstructorArguments(client, ns, "url", totalTpsCounter);
@@ -63,6 +64,8 @@ public class TestSetup {
         testList.add(new UrlReadTest(urlArgs, url));
         testList.add(new UrlPointReadTest(urlArgs, url));
         testList.add(new UrlBatchWriteTest(urlArgs, url, def(cfg.writeBatchSize, 100), urlTtl));
+        testList.add(new UrlBatchReadTest(urlArgs, url, def(cfg.readBatchSize, 50)));
+        testList.add(new UrlDeleteTest(urlArgs, url));
 
         // kepler — tbl_segments -> set "seg"
         var segArgs = new TestCaseConstructorArguments(client, ns, "seg", totalTpsCounter);
@@ -71,6 +74,8 @@ public class TestSetup {
         testList.add(new SegUpdateTest(segArgs, seg, segTtl));
         testList.add(new SegReadTest(segArgs, seg));
         testList.add(new SegBatchWriteTest(segArgs, seg, def(cfg.writeBatchSize, 100), segTtl));
+        testList.add(new SegBatchReadTest(segArgs, seg, def(cfg.readBatchSize, 50)));
+        testList.add(new SegDeleteTest(segArgs, seg));
 
         // corvus — draco.bids -> set "bids"
         var bidArgs = new TestCaseConstructorArguments(client, ns, "bids", totalTpsCounter);
