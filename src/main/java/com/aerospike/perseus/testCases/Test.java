@@ -89,6 +89,10 @@ public abstract class Test<T> extends TPSLogger {
         return new Key(namespace, setName, key);
     }
 
+    protected Key getKey(String key) {
+        return new Key(namespace, setName, key);
+    }
+
     @Override
     public String getThreadsInformation() {
         return String.format("%d", threadCount.get());

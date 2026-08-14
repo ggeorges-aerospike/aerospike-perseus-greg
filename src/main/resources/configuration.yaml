@@ -6,7 +6,7 @@ aerospikeConfiguration:
   username: "s"
   password: ""
   namespace: "test"
-  set: "test"
+  set: "user_feat"
   truncateSet: True
   tlsPath: ""
 outputWindowConfiguration:
@@ -15,16 +15,17 @@ outputWindowConfiguration:
   columnWidth: 11
 testConfiguration:
   perseusId: 0
-  recordSize: 1220
+  writeBatchSize: 100
   readBatchSize: 50
-  writeBatchSize: 50
-  readHitRatio: 0.8
-  stringIndex: False
-  numericIndex: False
-  geoSpatialIndex: False
-  udfAggregation: False
-  rangeQuery: False
-  rangeQueryConfiguration:
-    maxTimeRangeChance: 0.00001
-    maxTimeRange: 1000
-    normalTimeRange: 5
+  # --- wyllo feature-platform model ---
+  wylloFeaturesPerEntity: 20
+  wylloAvgWritesPerUser: 10
+  wylloBinUniverse: 100000
+  wylloMaxBinsPerUser: 2
+  wylloMaxBinIpsPerUser: 5
+  wylloMaxEmailsPerUser: 1
+  wylloBinWeight: 5
+  wylloBinIpWeight: 3
+  wylloEmailWeight: 2
+  wylloVectorSize: 10
+  wylloTtlSeconds: 0
